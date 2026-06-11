@@ -1,77 +1,70 @@
 /**
  * @file api.js
- * @description Lapisan komunikasi jaringan (Ultra-Resilient Version).
- * Dilengkapi dengan Auto-Extractor untuk membaca segala jenis format JSON dari Google Sheets.
+ * @description Lapisan komunikasi jaringan (CORS & Redirect Bypass Version).
+ * Fokus pada penanganan keamanan Google Apps Script (Redirect 302 & CORS).
  */
 
 const API = {
     async getMenuData() {
-        console.log("[API] Menghubungi server Google Apps Script...");
+        console.log("[API] Mencoba menembus koneksi ke Google Apps Script...");
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // Batas waktu 15 detik
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
+            // PERBAIKAN KRITIS: Memastikan browser mengikuti redirect Google (302)
+            // tanpa mengirimkan header yang bisa memicu blokir CORS
             const response = await fetch(`${CONFIG.APP_SCRIPT_URL}?action=getMenu`, {
                 method: 'GET',
+                redirect: 'follow', // Wajib untuk melewati redirect eksekusi Google
                 signal: controller.signal
             });
 
             clearTimeout(timeoutId);
 
-            // 1. Ekstraksi sebagai teks mentah untuk mencegah crash (Mendeteksi Error HTML dari Google)
             const rawText = await response.text();
-            
-            let rawData;
-            try {
-                rawData = JSON.parse(rawText);
-            } catch (parseError) {
-                console.error("[API] Fatal: Server tidak mengirimkan JSON. Balasan server:", rawText.substring(0, 150) + "...");
-                throw new Error("Format respons server bukan JSON. Pastikan Web App Google Sheets di-deploy dengan akses 'Anyone'.");
+
+            // DETEKSI BLOKIR GOOGLE: Jika yang kembali adalah halaman HTML (biasanya halaman login Google)
+            if (rawText.trim().startsWith('<')) {
+                console.error("[API ERROR] Terhalang Keamanan Google. Server mengembalikan HTML:", rawText.substring(0, 200));
+                
+                // Menampilkan error langsung ke layar agar kita tahu pasti penyebabnya
+                UI.showToast("Akses API diblokir oleh Google. Cek Console (F12).", "error");
+                return null;
             }
 
-            console.log("[API] Berhasil membaca JSON mentah:", rawData);
-
-            // ==========================================
-            // 2. ALGORITMA PENCARI ARRAY OTOMATIS (AUTO-EXTRACTOR)
-            // ==========================================
-            let validMenuArray = [];
+            // Parsing JSON dengan aman
+            const rawData = JSON.parse(rawText);
             
+            // Pencarian Array Otomatis
+            let validMenuArray = [];
             if (Array.isArray(rawData)) {
-                // Skenario A: Data langsung berupa Array [...]
                 validMenuArray = rawData;
             } else if (rawData && typeof rawData === 'object') {
-                // Skenario B: Objek yang di dalamnya terdapat Array. 
-                // Kita akan melacak secara otomatis di mana Array tersebut bersembunyi.
                 for (const key in rawData) {
                     if (Array.isArray(rawData[key])) {
                         validMenuArray = rawData[key];
-                        console.log(`[API] Data Array berhasil ditemukan pada properti: '${key}'`);
                         break;
                     }
                 }
             }
 
             if (validMenuArray.length === 0) {
-                throw new Error("Tidak ditemukan struktur daftar makanan di dalam database Anda.");
+                console.error("[API ERROR] JSON berhasil ditarik, tapi tidak ada Array makanan di dalamnya.");
+                return null;
             }
 
-            // 3. Sanitasi Data (Pembersihan baris kosong dari Excel/Sheets)
-            const sanitizedMenu = validMenuArray.filter(item => item.name);
-            
-            console.log(`[API] ${sanitizedMenu.length} menu valid siap dikirim ke layar.`);
-            return sanitizedMenu;
+            return validMenuArray.filter(item => item.name);
 
         } catch (error) {
             clearTimeout(timeoutId);
+            console.error(`[API FATAL ERROR] Alasan spesifik: ${error.message}`);
             
-            if (error.name === 'AbortError') {
-                console.error("[API] Timeout: Server sangat lambat merespon (Lebih dari 15 detik).");
-            } else {
-                console.error("[API] Kegagalan Sistem Koneksi:", error.message);
+            // Jika error berupa "Failed to fetch", biasanya karena dibuka via file:/// 
+            // atau Web App Google belum di-set 'Anyone'
+            if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+                UI.showToast("Koneksi diblokir oleh Browser (CORS).", "error");
             }
-            
-            // Kembalikan null agar App.js tahu dan memunculkan UI "Koneksi Terganggu" secara elegan
-            return null; 
+            return null;
         }
     }
 };
