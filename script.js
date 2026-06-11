@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
 // Versi dengan Pantauan Bill, status real-time, perbaikan delete menu
 
-const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE"; // GANTI DENGAN URL ANDA
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0Uojx6vZrvJ4bcWN1kFvpUnkWcPVEvHO9QEhwDw5c7JmA93ziJxXIx2MG9tI8B3RzDA/exec"; // GANTI DENGAN URL ANDA
 
 let currentCategory = "all";
 let currentItem = null;
