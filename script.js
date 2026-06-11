@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
 // Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4DRQ8iJUYXCjlohppAN436BJroNDa7Cq3iYoRSglpYxRDnd8os32z7lGSlAmYRyuf2Q/exec";
 
 let currentCategory = "all";
 let currentItem = null;
