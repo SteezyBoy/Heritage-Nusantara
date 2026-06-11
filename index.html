@@ -38,6 +38,10 @@
         <button class="darkmode-toggle" id="darkmodeToggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">
             <span id="darkmodeIcon">🌙</span>
         </button>
+        <button class="cart-icon" id="cartIconBtn" onclick="openCart()">
+            🛒
+            <span id="cart-count">0</span>
+        </button>
         <div class="logo-circle">🍃</div>
         <h1 class="restaurant-name">Heritage Nusantara</h1>
         <p class="restaurant-tagline">Authentic Indonesian Cuisine</p>
@@ -109,18 +113,12 @@
     </div>
 </div>
 
-<!-- ===== FLOATING BUTTONS (Cart, Monitor, Favorites) ===== -->
-<button class="fav-fab" id="favFabBtn" onclick="openFavModal()" title="My Favorites">❤️</button>
-<button class="monitor-fab" id="monitorFabBtn" onclick="openBillMonitorIfExists()" title="Pantau Pesanan">📋</button>
-<button class="cart-icon" id="cartIconBtn" onclick="openCart()">
-    🛒
-    <span id="cart-count">0</span>
-</button>
-
-<!-- ===== CART MODAL (tanpa payment di sini, hanya untuk proceed) ===== -->
+<!-- ===== CART MODAL (dengan layar Bill Monitor) ===== -->
 <div id="cartModal" class="cart-modal">
     <div class="cart-content">
         <span class="close" onclick="closeCart()">×</span>
+
+        <!-- Screen 1: Cart -->
         <div id="cart-screen">
             <h2>🛒 Your Cart</h2>
             <div id="cart-items"></div>
@@ -130,28 +128,70 @@
                 <small>Add some delicious items!</small>
             </div>
             <div class="cart-footer">
-                <div class="cart-total">Total: <span id="cart-total">Rp 0</span></div>
+                <div class="cart-total">
+                    Total: <span id="cart-total">Rp 0</span>
+                </div>
                 <div class="cart-actions-row">
                     <button class="clear-cart-btn" onclick="clearCart()">🗑 Clear All</button>
-                    <button class="checkout-btn" id="proceedOrderBtn" onclick="proceedOrder()">Proceed Order →</button>
+                    <button class="checkout-btn" onclick="openOrderSummary()">Proceed to Order</button>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- ===== BILL MONITOR MODAL (pantauan pesanan real-time) ===== -->
-<div id="billModal" class="bill-modal">
-    <div class="bill-content">
-        <span class="close-bill" onclick="closeBillModal()">&times;</span>
-        <h2>📊 Pantauan Pesanan</h2>
-        <div id="bill-order-id" style="font-size:12px; text-align:center; color:var(--muted); margin-bottom:10px;"></div>
-        <div id="bill-items-list"></div>
-        <div class="bill-total">Total: <span id="bill-total">Rp 0</span></div>
-        <div id="bill-status-badge" style="text-align:center; margin:10px 0;"></div>
-        <div class="bill-actions">
-            <button class="back-btn" onclick="closeBillModal()">Tutup</button>
-            <button id="closeBillBtn" class="close-bill-btn" onclick="closeBillAndPayment()">💰 Close Bill & Payment</button>
+        <!-- Screen 2: Order Summary + Table Number -->
+        <div id="order-summary-screen" style="display:none;">
+            <h2>📋 Order Summary</h2>
+            <div class="table-input-wrapper">
+                <label>🪑 Table Number</label>
+                <input type="text" id="tableNumber" placeholder="e.g. Table 5" maxlength="20">
+            </div>
+            <div id="order-summary-items"></div>
+            <div class="order-summary-total">
+                <span>Total</span>
+                <span id="order-summary-grand-total"></span>
+            </div>
+            <div class="order-timestamp">
+                <span id="order-time-display"></span>
+            </div>
+            <div class="summary-btn-row">
+                <button class="back-btn" onclick="backToCart()">← Back</button>
+                <button class="checkout-btn" onclick="openPayment()">Pay via QRIS →</button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Payment -->
+        <div id="payment-screen" style="display:none;">
+            <h2>💳 QRIS Payment</h2>
+            <div class="payment-info-box">
+                <div class="pay-table-info" id="payTableInfo"></div>
+                <div class="pay-total-info" id="payTotalInfo"></div>
+                <div class="pay-time-info" id="payTimeInfo"></div>
+            </div>
+            <div class="qris-placeholder">
+                <div class="barcode-box">
+                    <img src="images/QRIS.jpg" alt="QRIS Payment" loading="lazy" style="width:100%; max-width:200px; display:block; margin:0 auto;">
+                </div>
+            </div>
+            <p class="qris-note">Scan the QR code above using your mobile banking or e-wallet app</p>
+            <div class="summary-btn-row" style="justify-content:space-between;">
+                <button class="back-btn" onclick="backToSummary()">← Back</button>
+                <button class="checkout-btn" onclick="confirmPayment()" style="background: linear-gradient(135deg, var(--green), var(--green2));">✅ Sudah Bayar</button>
+            </div>
+        </div>
+
+        <!-- Screen 4: Bill Monitor -->
+        <div id="bill-monitor-screen" style="display:none;">
+            <h2>📊 Pantauan Bill</h2>
+            <div id="bill-order-id" style="font-size:12px; text-align:center; color:var(--muted); margin-bottom:10px;"></div>
+            <div id="bill-items-list"></div>
+            <div class="order-summary-total" style="margin:10px 0;">
+                <span>Total Tagihan</span>
+                <span id="bill-total">Rp 0</span>
+            </div>
+            <div class="summary-btn-row">
+                <button class="back-btn" onclick="closeBillMonitor()">Tutup</button>
+                <button id="closeBillBtn" class="checkout-btn" style="background: linear-gradient(135deg, var(--accent), var(--accent2));" onclick="closeBillAndPayment()">💰 Close Bill & Payment</button>
+            </div>
         </div>
     </div>
 </div>
@@ -170,6 +210,13 @@
     </div>
 </div>
 
+<!-- ===== FAVORITES FAB ===== -->
+<button class="fav-fab" onclick="openFavModal()" title="My Favorites">❤️</button>
+
+<!-- ===== BILL MONITOR FAB (di atas tombol favorit) ===== -->
+<button class="bill-fab" onclick="if(activeOrderId) openBillMonitor(activeOrderId); else showShareToast('Tidak ada pesanan aktif');" title="Pantau Pesanan">📋</button>
+
+<!-- ===== SHARE TOAST ===== -->
 <div id="shareToast" class="share-toast"></div>
 
 <script src="script.js"></script>
