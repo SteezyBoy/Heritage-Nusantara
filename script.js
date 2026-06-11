@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
+// Versi dengan Pantauan Bill, status real-time, perbaikan delete menu
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
+const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE"; // GANTI DENGAN URL ANDA
 
 let currentCategory = "all";
 let currentItem = null;
@@ -12,6 +12,8 @@ let quickAddItem = null;
 let quickQty = 1;
 let isDarkMode = localStorage.getItem("hn_darkmode") === "true";
 let menuData = { makanan: [], minuman: [], dessert: [] };
+let activeOrderId = localStorage.getItem("hn_active_order_id") || null;
+let billMonitorInterval = null;
 
 // ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", async () => {
@@ -19,6 +21,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     showSkeletonLoading();
     await loadMenuFromSheet();
     renderMenu();
+    if (activeOrderId) {
+        setTimeout(() => openBillMonitor(activeOrderId), 500);
+    }
 });
 
 // ==================== AMBIL MENU DARI GOOGLE SHEETS ====================
@@ -415,7 +420,7 @@ function openCart() {
     document.getElementById("cart-screen").style.display = "block";
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("payment-confirm-screen").style.display = "none";
+    document.getElementById("bill-monitor-screen").style.display = "none";
 }
 function closeCart() { document.getElementById("cartModal").style.display = "none"; }
 function openOrderSummary() {
@@ -443,7 +448,7 @@ function openOrderSummary() {
     document.getElementById("order-summary-screen").style.display = "block";
 }
 
-// ==================== KIRIM PESANAN KE GOOGLE SHEETS (setelah konfirmasi bayar) ====================
+// ==================== ALUR PEMBAYARAN & PANTUAN BILL ====================
 let pendingOrderData = null;
 
 function openPayment() {
@@ -452,16 +457,11 @@ function openPayment() {
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const now = new Date();
     const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
-
     document.getElementById("payTableInfo").innerHTML = `🪑 Table: <strong>${tableNum}</strong>`;
     document.getElementById("payTotalInfo").innerHTML = `💰 Total: <strong>${formatPrice(total)}</strong>`;
     document.getElementById("payTimeInfo").innerHTML  = `🕐 Time: <strong>${timeStr}</strong>`;
-
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "block";
-    document.getElementById("payment-confirm-screen").style.display = "none";
-
-    // Simpan data pesanan untuk dikirim setelah konfirmasi
     pendingOrderData = {
         tableNumber: tableNum,
         items: cart.map(item => ({
@@ -475,55 +475,11 @@ function openPayment() {
     };
 }
 
-function confirmPayment() {
+async function confirmPayment() {
     if (!pendingOrderData) return;
-
-    // Tampilkan loading pada tombol
     const confirmBtn = document.querySelector("#payment-screen .checkout-btn");
-    const originalText = confirmBtn.innerText;
-    confirmBtn.innerText = "⏳ Memproses...";
+    confirmBtn.innerText = "⏳ Mengirim...";
     confirmBtn.disabled = true;
-
-    // Pindah ke layar konfirmasi loading
-    document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("payment-confirm-screen").style.display = "block";
-    document.getElementById("confirm-status").innerHTML = "⏳ Mengirim pesanan ke dapur...";
-
-    sendOrderToServer().then(success => {
-        if (success) {
-            document.getElementById("confirm-status").innerHTML = "✅ Pesanan berhasil! Admin akan segera memproses.";
-            // Kosongkan cart
-            cart = [];
-            updateCartBadge();
-            // Tampilkan popup sukses
-            showSuccessPopup("Pembayaran berhasil dikonfirmasi! Pesanan Anda telah diterima.");
-            // Setelah 3 detik tutup modal cart
-            setTimeout(() => {
-                closeCart();
-                // Reset
-                document.getElementById("payment-confirm-screen").style.display = "none";
-                document.getElementById("payment-screen").style.display = "block";
-                confirmBtn.innerText = originalText;
-                confirmBtn.disabled = false;
-                pendingOrderData = null;
-            }, 3000);
-        } else {
-            document.getElementById("confirm-status").innerHTML = "❌ Gagal mengirim pesanan. Coba lagi.";
-            setTimeout(() => {
-                document.getElementById("payment-confirm-screen").style.display = "none";
-                document.getElementById("payment-screen").style.display = "block";
-                confirmBtn.innerText = originalText;
-                confirmBtn.disabled = false;
-            }, 2000);
-        }
-    });
-}
-
-async function sendOrderToServer() {
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
-        console.warn("URL Apps Script belum diset");
-        return false;
-    }
     try {
         const orderData = {
             action: "newOrder",
@@ -537,23 +493,108 @@ async function sendOrderToServer() {
         });
         const result = await res.json();
         if (result.status === "ok") {
-            return true;
+            activeOrderId = result.orderId;
+            localStorage.setItem("hn_active_order_id", activeOrderId);
+            cart = [];
+            updateCartBadge();
+            closeCart();
+            setTimeout(() => openBillMonitor(activeOrderId), 300);
+            showSuccessPopup("Pesanan berhasil! Pantau status di Bill Monitor.");
         } else {
-            return false;
+            showShareToast("Gagal membuat pesanan, coba lagi.");
         }
     } catch (err) {
-        console.error("Gagal kirim order:", err);
-        return false;
+        console.error(err);
+        showShareToast("Error jaringan.");
+    } finally {
+        confirmBtn.innerText = "✅ Sudah Bayar";
+        confirmBtn.disabled = false;
+        document.getElementById("payment-screen").style.display = "none";
+        pendingOrderData = null;
     }
 }
 
-function backToCart() {
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("cart-screen").style.display = "block";
-}
 function backToSummary() {
     document.getElementById("payment-screen").style.display = "none";
     document.getElementById("order-summary-screen").style.display = "block";
+}
+
+// ==================== BILL MONITOR ====================
+async function openBillMonitor(orderId) {
+    if (billMonitorInterval) clearInterval(billMonitorInterval);
+    activeOrderId = orderId;
+    localStorage.setItem("hn_active_order_id", orderId);
+    document.getElementById("bill-monitor-screen").style.display = "block";
+    document.getElementById("cart-screen").style.display = "none";
+    document.getElementById("order-summary-screen").style.display = "none";
+    document.getElementById("payment-screen").style.display = "none";
+    document.getElementById("cartModal").style.display = "block";
+    await loadBillData(orderId);
+    billMonitorInterval = setInterval(() => loadBillData(orderId), 5000);
+}
+
+async function loadBillData(orderId) {
+    if (!APPS_SCRIPT_URL) return;
+    try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${orderId}`);
+        const data = await res.json();
+        const order = data.order;
+        if (!order || !order.items) {
+            document.getElementById("bill-items-list").innerHTML = '<div class="empty-msg">Pesanan tidak ditemukan</div>';
+            return;
+        }
+        document.getElementById("bill-order-id").innerHTML = `Order ID: ${order.id}`;
+        let itemsHtml = '<div class="order-items" style="margin-top:0;">';
+        order.items.forEach(item => {
+            itemsHtml += `
+                <div class="order-item-row">
+                    <span>${item.qty}× ${item.name} ${item.notes ? `<em class="note">(${item.notes})</em>` : ''}</span>
+                    <span>${formatPrice(item.subtotal)}</span>
+                </div>`;
+        });
+        itemsHtml += '</div>';
+        document.getElementById("bill-items-list").innerHTML = itemsHtml;
+        document.getElementById("bill-total").innerHTML = formatPrice(order.total);
+        let statusBadge = '';
+        if (order.status === 'Baru') statusBadge = '<span class="order-badge badge-baru">🔴 Baru - Menunggu Diproses</span>';
+        else if (order.status === 'Diproses') statusBadge = '<span class="order-badge badge-diproses">🟡 Diproses</span>';
+        else if (order.status === 'Selesai') statusBadge = '<span class="order-badge badge-selesai">🟢 Selesai</span>';
+        document.getElementById("bill-status-badge").innerHTML = statusBadge;
+        const closeBtn = document.getElementById("closeBillBtn");
+        if (order.status === 'Selesai') {
+            closeBtn.innerHTML = "💰 Tutup Bill & Selesai";
+            closeBtn.style.background = "linear-gradient(135deg, var(--green), var(--green2))";
+        } else {
+            closeBtn.innerHTML = "💰 Close Bill & Payment";
+            closeBtn.style.background = "linear-gradient(135deg, var(--accent), var(--accent2))";
+        }
+    } catch (err) {
+        console.error("Gagal load bill:", err);
+    }
+}
+
+function closeBillMonitor() {
+    if (billMonitorInterval) clearInterval(billMonitorInterval);
+    document.getElementById("cartModal").style.display = "none";
+    localStorage.removeItem("hn_active_order_id");
+    activeOrderId = null;
+    location.reload();
+}
+
+async function closeBillAndPayment() {
+    if (!activeOrderId) return;
+    try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${activeOrderId}`);
+        const data = await res.json();
+        if (data.order.status !== 'Selesai') {
+            showShareToast("Pesanan belum selesai diproses oleh admin. Silakan tunggu.");
+            return;
+        }
+        closeBillMonitor();
+        showSuccessPopup("Terima kasih! Silakan pesan lagi.");
+    } catch (err) {
+        showShareToast("Error menutup bill.");
+    }
 }
 
 // ==================== SHARE ITEM ====================
