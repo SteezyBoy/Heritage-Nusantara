@@ -8,7 +8,6 @@
 </head>
 <body>
 
-<!-- ===== SUCCESS POPUP ===== -->
 <div id="success-popup" class="success-popup">
     <div class="popup-content">
         <div class="checkmark">✓</div>
@@ -16,7 +15,6 @@
     </div>
 </div>
 
-<!-- ===== QUICK ADD MODAL ===== -->
 <div id="quickAddModal" class="quick-add-modal">
     <div class="quick-add-content">
         <span class="close-quick" onclick="closeQuickAddModal()">&times;</span>
@@ -33,184 +31,141 @@
 </div>
 
 <div class="app">
-    <!-- ===== HEADER ===== -->
     <header>
-        <div class="restaurant-badge">✨ Premium Indonesian Cuisine</div>
-        <button class="darkmode-toggle" id="darkmodeToggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">
-            <span id="darkmodeIcon">🌙</span>
-        </button>
-        <button class="cart-icon" id="cartIconBtn" onclick="openCart()">
-            🛒
-            <span id="cart-count">0</span>
-        </button>
-        <div class="logo-circle">🍃</div>
-        <h1 class="restaurant-name">Heritage Nusantara</h1>
-        <p class="restaurant-tagline">Authentic Indonesian Cuisine</p>
-        <div class="header-info">
-            🍽 Signature Menu • 🌶 Indonesian Spices • ⭐ Premium Quality
+        <div class="header-top">
+            <div class="logo">
+                <h1>Heritage Nusantara</h1>
+                <p>Authentic Indonesian Cuisine</p>
+            </div>
+            <div class="header-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon">🌙</button>
+                <div class="cart-icon" id="cartIconBtn" onclick="openCart()">
+                    🛒 <span id="cart-count">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search menu..." onkeyup="searchMenu()">
+            <button onclick="searchMenu()">🔍</button>
+        </div>
+        
+        <div class="categories">
+            <button class="category-btn active" onclick="changeCategory(this, 'all')">All Menu</button>
+            <button class="category-btn" onclick="changeCategory(this, 'makanan')">Makanan</button>
+            <button class="category-btn" onclick="changeCategory(this, 'minuman')">Minuman</button>
+            <button class="category-btn" onclick="changeCategory(this, 'dessert')">Dessert</button>
+        </div>
+        
+        <div class="sort-wrapper">
+            <select id="sortMenu" onchange="sortMenu()">
+                <option value="default">Sort by...</option>
+                <option value="az">Name: A to Z</option>
+                <option value="za">Name: Z to A</option>
+                <option value="low">Price: Low to High</option>
+                <option value="high">Price: High to Low</option>
+            </select>
         </div>
     </header>
 
-    <!-- ===== SEARCH ===== -->
-    <div class="search-wrapper">
-        <input type="text" id="searchInput" placeholder="🔍 Search menu..." onkeyup="searchMenu()">
-    </div>
+    <div class="menu-grid" id="menu-list"></div>
 
-    <!-- ===== SORT ===== -->
-    <div class="sort-wrapper">
-        <select id="sortMenu" onchange="sortMenu()">
-            <option value="" disabled selected>Sort Menu</option>
-            <option value="default">❌ Clear Filter (Default)</option>
-            <option value="az">A-Z</option>
-            <option value="za">Z-A</option>
-            <option value="low">Price Low to High</option>
-            <option value="high">Price High to Low</option>
-        </select>
-    </div>
-
-    <!-- ===== CATEGORY BUTTONS ===== -->
-    <div class="category-wrapper">
-        <button class="category-btn active" onclick="changeCategory(this,'all')">🍽 ALL</button>
-        <button class="category-btn" onclick="changeCategory(this,'makanan')">🍛 FOOD</button>
-        <button class="category-btn" onclick="changeCategory(this,'dessert')">🍨 DESSERT</button>
-        <button class="category-btn" onclick="changeCategory(this,'minuman')">🥤 BEVERAGES</button>
-    </div>
-
-    <!-- ===== MENU LIST ===== -->
-    <div id="menu-list"></div>
-
-    <!-- ===== ABOUT SECTION ===== -->
-    <section class="about-section">
-        <div class="about-icon">🍃</div>
-        <h2>About <span>Heritage Nusantara</span></h2>
-        <p>Heritage Nusantara presents authentic Indonesian cuisine crafted from selected ingredients and traditional recipes passed down through generations.</p>
-        <p>Our mission is to preserve Indonesia's culinary heritage while delivering a premium dining experience for every guest.</p>
-    </section>
-
-    <footer>
-        <h3>Heritage Nusantara</h3>
-        <p>Authentic Indonesian Cuisine</p>
-        <small>© 2026 Heritage Nusantara</small>
-    </footer>
-</div>
-
-<!-- ===== MODAL DETAIL ===== -->
-<div id="modal" class="modal">
-    <div class="modal-container">
-        <span class="close-modal" onclick="closeModal()">&times;</span>
-        <div class="modal-scrollable">
-            <img id="modal-image" class="modal-image" loading="lazy">
-            <div class="modal-content-inner">
-                <div class="modal-header-row">
-                    <div id="modal-category" class="modal-category"></div>
-                    <button class="fav-btn" id="modalFavBtn" onclick="toggleFavFromModal()" title="Favorite">♡</button>
-                    <button class="share-btn" id="modalShareBtn" onclick="shareItem()" title="Share Menu">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                    </button>
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-scrollable">
+                <img id="modal-image" src="" alt="Menu Image">
+                <div class="modal-info">
+                    <div class="food-tag" id="modal-category">Category</div>
+                    <h2 id="modal-name">Menu Name</h2>
+                    <div class="price" id="modal-price">Rp 0</div>
+                    <p id="modal-desc" class="modal-desc">Description</p>
+                    
+                    <div class="quantity-wrapper" style="margin-top:20px; justify-content:center;">
+                        <button onclick="decreaseModalQty()">-</button>
+                        <span id="modal-qty">1</span>
+                        <button onclick="increaseModalQty()">+</button>
+                    </div>
+                    <textarea id="modal-notes" placeholder="Special request (optional)..." style="width:100%; margin-top:15px; padding:10px; border-radius:8px; border:1px solid var(--border); font-family:inherit;"></textarea>
                 </div>
-                <h2 id="modal-name" class="modal-name"></h2>
-                <div id="modal-price" class="modal-price"></div>
-                <p id="modal-desc" class="modal-description"></p>
-                <div class="modal-quantity">
-                    <button class="qty-control" onclick="decreaseModalQty()">−</button>
-                    <span id="modal-qty">1</span>
-                    <button class="qty-control" onclick="increaseModalQty()">+</button>
-                </div>
-                <textarea id="modal-notes" placeholder="Special request notes (optional)..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="share-btn" onclick="shareItem()">📤 Share</button>
                 <button class="modal-add-btn" onclick="addToCartFromModal()">Add To Cart</button>
             </div>
         </div>
     </div>
-</div>
 
-<!-- ===== CART MODAL ===== -->
-<div id="cartModal" class="cart-modal">
-    <div class="cart-content">
-        <span class="close" onclick="closeCart()">×</span>
-
-        <!-- Screen 1: Cart -->
-        <div id="cart-screen">
-            <h2>🛒 Your Cart</h2>
-            <div id="cart-items"></div>
-            <div id="cart-empty-state" class="cart-empty-state" style="display:none;">
-                <div class="empty-icon">🛒</div>
-                <p>Your cart is empty</p>
-                <small>Add some delicious items!</small>
-            </div>
-            <div class="cart-footer">
-                <div class="cart-total">
-                    Total: <span id="cart-total">Rp 0</span>
-                </div>
-                <div class="cart-actions-row">
-                    <button class="clear-cart-btn" onclick="clearCart()">🗑 Clear All</button>
-                    <button class="checkout-btn" onclick="openOrderSummary()">Close Bill & Payment</button>
+    <div id="cartModal" class="cart-modal">
+        <div class="cart-content">
+            <span class="close-cart" onclick="closeCart()">&times;</span>
+            
+            <div id="cart-screen">
+                <h2>🛒 Your Cart</h2>
+                <button class="clear-cart-btn" onclick="clearCart()">🗑️ Clear Cart</button>
+                <div id="cart-empty-state" class="cart-empty">Cart is empty</div>
+                <div id="cart-items"></div>
+                <div class="cart-footer">
+                    <div class="cart-total-row">
+                        <span>Total:</span>
+                        <span id="cart-total">Rp 0</span>
+                    </div>
+                    <button class="checkout-btn" onclick="openOrderSummary()">Checkout ➔</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Screen 2: Order Summary + Table Number -->
-        <div id="order-summary-screen" style="display:none;">
-            <h2>📋 Order Summary</h2>
-            <div class="table-input-wrapper">
-                <label>🪑 Table Number</label>
-                <input type="text" id="tableNumber" placeholder="e.g. Table 5" maxlength="20">
-            </div>
-            <div id="order-summary-items"></div>
-            <div class="order-summary-total">
-                <span>Total</span>
-                <span id="order-summary-grand-total"></span>
-            </div>
-            <div class="order-timestamp">
-                <span id="order-time-display"></span>
-            </div>
-            <div class="summary-btn-row">
-                <button class="back-btn" onclick="backToCart()">← Back</button>
-                <button class="checkout-btn" onclick="openPayment()">Pay via QRIS →</button>
-            </div>
-        </div>
+            <div id="order-summary-screen" style="display:none;">
+                <div class="back-nav" onclick="backToCart()">⬅ Back to Cart</div>
+                <h2>📋 Order Summary</h2>
+                <div class="order-time" id="order-time-display"></div>
+                
+                <div class="input-group" style="margin:20px 0;">
+                    <label>Table Number:</label>
+                    <input type="text" id="tableNumber" placeholder="e.g. T-01, VIP-2, or Takeaway" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); font-size:16px;">
+                </div>
 
-        <!-- Screen 3: Payment -->
-        <div id="payment-screen" style="display:none;">
-            <h2>💳 QRIS Payment</h2>
-            <div class="payment-info-box">
-                <div class="pay-table-info" id="payTableInfo"></div>
-                <div class="pay-total-info" id="payTotalInfo"></div>
-                <div class="pay-time-info" id="payTimeInfo"></div>
+                <div id="order-summary-items" class="summary-list"></div>
+                
+                <div class="cart-total-row" style="margin-top:20px; padding-top:15px; border-top:2px dashed var(--border);">
+                    <span>Grand Total:</span>
+                    <span id="order-summary-grand-total">Rp 0</span>
+                </div>
+                <button class="checkout-btn" onclick="openPayment()" style="margin-top:20px;">Proceed to Payment ➔</button>
             </div>
-            <div class="qris-placeholder">
-                <div class="barcode-box">
-                    <img src="images/QRIS.jpg" alt="QRIS Payment" loading="lazy" style="width:100%; max-width:200px; display:block; margin:0 auto;">
+
+            <div id="payment-screen" style="display:none;">
+                <div class="back-nav" onclick="backToSummary()">⬅ Back to Summary</div>
+                <h2>💳 Payment</h2>
+                
+                <div class="payment-info-box">
+                    <p id="payTableInfo"></p>
+                    <p id="payTimeInfo"></p>
+                    <p id="payTotalInfo" style="font-size:18px; color:var(--accent); margin-top:10px;"></p>
+                </div>
+
+                <div class="qris-box">
+                    <h3>Scan QRIS</h3>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_QRIS.svg" alt="QRIS" style="width:150px; margin:15px auto; display:block;">
+                    <p>A.n Heritage Nusantara</p>
+                </div>
+
+                <div style="margin-top:20px;">
+                    <button class="checkout-btn" onclick="confirmPayment()" style="background: linear-gradient(105deg, var(--green), var(--green2));">✅ Sudah Bayar</button>
                 </div>
             </div>
-            <div id="payOrderId" style="text-align:center;font-size:14px;margin-bottom:10px;color:#10b981;font-weight:600;min-height:22px;"></div>
-            <p class="qris-note">Scan the QR code above using your mobile banking or e-wallet app</p>
-            <div class="summary-btn-row" style="justify-content:space-between;">
-                <button class="back-btn" onclick="backToSummary()">← Back</button>
-                <button class="checkout-btn" onclick="confirmPayment()" style="background: linear-gradient(135deg, var(--green), var(--green2));">✅ Sudah Bayar</button>
-            </div>
-        </div>
 
-        <!-- Screen 4: Konfirmasi Pembayaran -->
-        <div id="payment-confirm-screen" style="display:none;">
-            <h2>⏳ Konfirmasi Pembayaran</h2>
-            <div class="payment-info-box">
-                <div id="confirm-status" style="text-align:center; padding:20px;">Memproses...</div>
-            </div>
-            <div style="text-align:center; margin-top:20px;">
-                <div class="loader" style="border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto;"></div>
+            <div id="payment-confirm-screen" style="display:none;">
+                <h2>⏳ Konfirmasi Pembayaran</h2>
+                <div class="payment-info-box">
+                    <div id="confirm-status" style="text-align:center; padding:20px;">Memproses...</div>
+                </div>
+                <div style="text-align:center; margin-top:20px;">
+                    <div class="loader" style="border:4px solid var(--border); border-top:4px solid var(--accent); border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto;"></div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-
-<!-- ===== FAVORITES FAB ===== -->
-<button class="fav-fab" onclick="openFavModal()" title="My Favorites">❤️</button>
-
-<!-- ===== SHARE TOAST ===== -->
-<div id="shareToast" class="share-toast"></div>
-
-<script src="script.js"></script>
 
 <div class="bill-fab" onclick="openBillModal()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -235,6 +190,12 @@
         <div id="billResult" style="margin-top: 20px; text-align: left; display: none; padding: 15px; background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);"></div>
     </div>
 </div>
+
+<script src="js/api.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/customer.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/bill-monitor.js"></script>
 
 </body>
 </html>
