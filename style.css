@@ -797,3 +797,35 @@ footer h3 { color: var(--accent); margin-bottom: 8px; }
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* ===== BILL MONITOR FAB ===== */
+.bill-fab {
+    position: fixed;
+    bottom: 85px; 
+    right: 20px;
+    background: var(--surface);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    z-index: 99;
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+}
+.bill-fab:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    border-color: var(--accent);
+}
+.bill-fab svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--text-primary);
+    transition: stroke var(--transition);
+}
+.bill-fab:hover svg {
+    stroke: var(--accent);
+}
