@@ -1,3 +1,12 @@
+// ================================================================
+// HERITAGE NUSANTARA - script.js
+// Versi dengan integrasi Google Sheets
+// ================================================================
+
+// ==================== KONFIGURASI ====================
+// Setelah deploy Google Apps Script, ganti URL di bawah ini:
+const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+
 // ==================== MENU DATA ====================
 const menuData = {
     makanan: [
@@ -43,9 +52,7 @@ let isDarkMode = localStorage.getItem("hn_darkmode") === "true";
 document.addEventListener("DOMContentLoaded", () => {
     applyDarkMode();
     showSkeletonLoading();
-    setTimeout(() => {
-        renderMenu();
-    }, 700);
+    setTimeout(() => { renderMenu(); }, 700);
 });
 
 // ==================== DARK MODE ====================
@@ -54,7 +61,6 @@ function toggleDarkMode() {
     localStorage.setItem("hn_darkmode", isDarkMode);
     applyDarkMode();
 }
-
 function applyDarkMode() {
     document.documentElement.setAttribute("data-theme", isDarkMode ? "dark" : "light");
     document.getElementById("darkmodeIcon").textContent = isDarkMode ? "☀️" : "🌙";
@@ -64,17 +70,14 @@ function applyDarkMode() {
 function formatPrice(price) {
     return "Rp " + price.toLocaleString("id-ID");
 }
-
 function getAllItems() {
     return [...menuData.makanan, ...menuData.dessert, ...menuData.minuman];
 }
-
 function showSuccessPopup() {
     const popup = document.getElementById("success-popup");
     popup.classList.add("show");
     setTimeout(() => { popup.classList.remove("show"); }, 2000);
 }
-
 function showShareToast(msg) {
     const toast = document.getElementById("shareToast");
     toast.textContent = msg;
@@ -115,7 +118,6 @@ function showEmptyState(keyword) {
         <button class="empty-state-btn" onclick="clearSearch()">Clear Search</button>
     </div>`;
 }
-
 function clearSearch() {
     document.getElementById("searchInput").value = "";
     currentSearchKeyword = "";
@@ -140,12 +142,7 @@ function renderMenu() {
     const items = getFilteredAndSortedItems();
     const menuList = document.getElementById("menu-list");
     menuList.innerHTML = "";
-
-    if (items.length === 0) {
-        showEmptyState(currentSearchKeyword || "this category");
-        return;
-    }
-
+    if (items.length === 0) { showEmptyState(currentSearchKeyword || "this category"); return; }
     items.forEach((item, index) => {
         const safeName = item.name.replace(/'/g, "\\'");
         const isFav = favorites.includes(item.name);
@@ -179,30 +176,19 @@ function renderMenu() {
 function toggleFav(event, itemName) {
     event.stopPropagation();
     const idx = favorites.indexOf(itemName);
-    if (idx === -1) {
-        favorites.push(itemName);
-    } else {
-        favorites.splice(idx, 1);
-    }
+    if (idx === -1) { favorites.push(itemName); } else { favorites.splice(idx, 1); }
     localStorage.setItem("hn_favorites", JSON.stringify(favorites));
     renderMenu();
-    // Update modal fav button jika terbuka
     if (currentItem && currentItem.name === itemName) updateModalFavBtn();
 }
-
 function toggleFavFromModal() {
     if (!currentItem) return;
     const idx = favorites.indexOf(currentItem.name);
-    if (idx === -1) {
-        favorites.push(currentItem.name);
-    } else {
-        favorites.splice(idx, 1);
-    }
+    if (idx === -1) { favorites.push(currentItem.name); } else { favorites.splice(idx, 1); }
     localStorage.setItem("hn_favorites", JSON.stringify(favorites));
     updateModalFavBtn();
     renderMenu();
 }
-
 function updateModalFavBtn() {
     const btn = document.getElementById("modalFavBtn");
     if (!btn || !currentItem) return;
@@ -210,17 +196,14 @@ function updateModalFavBtn() {
     btn.textContent = isFav ? "❤️" : "♡";
     btn.classList.toggle("fav-active", isFav);
 }
-
 function openFavModal() {
     const favList = document.getElementById("fav-list");
     const favEmpty = document.getElementById("fav-empty");
     favList.innerHTML = "";
     if (favorites.length === 0) {
-        favEmpty.style.display = "block";
-        favList.style.display = "none";
+        favEmpty.style.display = "block"; favList.style.display = "none";
     } else {
-        favEmpty.style.display = "none";
-        favList.style.display = "block";
+        favEmpty.style.display = "none"; favList.style.display = "block";
         const allItems = getAllItems();
         favorites.forEach(name => {
             const item = allItems.find(i => i.name === name);
@@ -242,17 +225,12 @@ function openFavModal() {
     }
     document.getElementById("favModal").style.display = "flex";
 }
-
-function closeFavModal() {
-    document.getElementById("favModal").style.display = "none";
-}
-
+function closeFavModal() { document.getElementById("favModal").style.display = "none"; }
 function removeFav(name) {
     const idx = favorites.indexOf(name);
     if (idx !== -1) favorites.splice(idx, 1);
     localStorage.setItem("hn_favorites", JSON.stringify(favorites));
-    renderMenu();
-    openFavModal();
+    renderMenu(); openFavModal();
 }
 
 // ==================== SHARE MENU ====================
@@ -260,14 +238,11 @@ function shareItem() {
     if (!currentItem) return;
     const text = `🍽️ ${currentItem.name}\n${formatPrice(currentItem.price)}\n\n${currentItem.desc}\n\n— Heritage Nusantara, Authentic Indonesian Cuisine`;
     if (navigator.share) {
-        navigator.share({ title: currentItem.name, text: text })
-            .catch(() => {});
+        navigator.share({ title: currentItem.name, text: text }).catch(() => {});
     } else {
         navigator.clipboard.writeText(text).then(() => {
             showShareToast("📋 Menu info copied to clipboard!");
-        }).catch(() => {
-            showShareToast("💡 Share: " + currentItem.name);
-        });
+        }).catch(() => { showShareToast("💡 Share: " + currentItem.name); });
     }
 }
 
@@ -284,35 +259,26 @@ function openModalByName(itemName) {
     document.getElementById("modal-price").innerText = formatPrice(currentItem.price);
     document.getElementById("modal-desc").innerText = currentItem.desc;
     updateModalFavBtn();
-    // Scroll ke atas saat buka
     const scrollable = document.querySelector(".modal-scrollable");
     if (scrollable) scrollable.scrollTop = 0;
     document.getElementById("modal").style.display = "flex";
 }
-
-function closeModal() {
-    document.getElementById("modal").style.display = "none";
-    currentItem = null;
-}
-
+function closeModal() { document.getElementById("modal").style.display = "none"; currentItem = null; }
 function increaseModalQty() {
-    let qtySpan = document.getElementById("modal-qty");
-    qtySpan.innerText = parseInt(qtySpan.innerText) + 1;
+    let s = document.getElementById("modal-qty");
+    s.innerText = parseInt(s.innerText) + 1;
 }
-
 function decreaseModalQty() {
-    let qtySpan = document.getElementById("modal-qty");
-    let val = parseInt(qtySpan.innerText);
-    if (val > 1) qtySpan.innerText = val - 1;
+    let s = document.getElementById("modal-qty");
+    let v = parseInt(s.innerText);
+    if (v > 1) s.innerText = v - 1;
 }
-
 function addToCartFromModal() {
     if (!currentItem) return;
     const qty = parseInt(document.getElementById("modal-qty").innerText);
     const notes = document.getElementById("modal-notes").value.trim();
     addItemToCart(currentItem, qty, notes);
-    closeModal();
-    showSuccessPopup();
+    closeModal(); showSuccessPopup();
 }
 
 // ==================== QUICK ADD ====================
@@ -326,21 +292,14 @@ function openQuickAddPopup(itemName) {
     document.getElementById("quickNotes").value = "";
     document.getElementById("quickAddModal").style.display = "flex";
 }
-
-function closeQuickAddModal() {
-    document.getElementById("quickAddModal").style.display = "none";
-    quickAddItem = null;
-}
-
+function closeQuickAddModal() { document.getElementById("quickAddModal").style.display = "none"; quickAddItem = null; }
 function increaseQuickQty() { quickQty++; document.getElementById("quickQty").innerText = quickQty; }
 function decreaseQuickQty() { if (quickQty > 1) { quickQty--; document.getElementById("quickQty").innerText = quickQty; } }
-
 function confirmQuickAdd() {
     if (!quickAddItem) return;
     const notes = document.getElementById("quickNotes").value.trim();
     addItemToCart(quickAddItem, quickQty, notes);
-    closeQuickAddModal();
-    showSuccessPopup();
+    closeQuickAddModal(); showSuccessPopup();
 }
 
 // ==================== CART CORE ====================
@@ -352,16 +311,12 @@ function addItemToCart(item, qty, notes) {
     } else {
         cart.push({ ...item, quantity: qty, notes: notes });
     }
-    updateCartBadge();
-    animateCartIcon();
+    updateCartBadge(); animateCartIcon();
 }
-
 function updateCartBadge() {
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const badge = document.getElementById("cart-count");
-    badge.innerText = totalItems;
+    document.getElementById("cart-count").innerText = totalItems;
 }
-
 function animateCartIcon() {
     const btn = document.getElementById("cartIconBtn");
     if (!btn) return;
@@ -370,23 +325,16 @@ function animateCartIcon() {
     btn.classList.add("cart-pop");
     setTimeout(() => btn.classList.remove("cart-pop"), 500);
 }
-
 function updateCart() {
     updateCartBadge();
     const container = document.getElementById("cart-items");
     const emptyState = document.getElementById("cart-empty-state");
     container.innerHTML = "";
-
     if (cart.length === 0) {
-        emptyState.style.display = "block";
-        container.style.display = "none";
-        document.getElementById("cart-total").innerText = formatPrice(0);
-        return;
+        emptyState.style.display = "block"; container.style.display = "none";
+        document.getElementById("cart-total").innerText = formatPrice(0); return;
     }
-
-    emptyState.style.display = "none";
-    container.style.display = "block";
-
+    emptyState.style.display = "none"; container.style.display = "block";
     let total = 0;
     cart.forEach((item, index) => {
         total += item.price * item.quantity;
@@ -408,24 +356,15 @@ function updateCart() {
     });
     document.getElementById("cart-total").innerText = formatPrice(total);
 }
-
 function changeCartQty(index, amount) {
     cart[index].quantity += amount;
     if (cart[index].quantity <= 0) cart.splice(index, 1);
     updateCart();
 }
-
-function removeCartItem(index) {
-    cart.splice(index, 1);
-    updateCart();
-}
-
+function removeCartItem(index) { cart.splice(index, 1); updateCart(); }
 function clearCart() {
     if (cart.length === 0) return;
-    if (confirm("Clear all items from cart?")) {
-        cart = [];
-        updateCart();
-    }
+    if (confirm("Clear all items from cart?")) { cart = []; updateCart(); }
 }
 
 // ==================== CART MODAL NAVIGATION ====================
@@ -436,17 +375,10 @@ function openCart() {
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "none";
 }
-
-function closeCart() {
-    document.getElementById("cartModal").style.display = "none";
-}
+function closeCart() { document.getElementById("cartModal").style.display = "none"; }
 
 function openOrderSummary() {
-    if (cart.length === 0) {
-        showShareToast("🛒 Your cart is empty!");
-        return;
-    }
-    // Render order summary items
+    if (cart.length === 0) { showShareToast("🛒 Your cart is empty!"); return; }
     const summaryContainer = document.getElementById("order-summary-items");
     summaryContainer.innerHTML = "";
     let total = 0;
@@ -463,16 +395,15 @@ function openOrderSummary() {
         </div>`;
     });
     document.getElementById("order-summary-grand-total").innerText = formatPrice(total);
-    // Timestamp
     const now = new Date();
     const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
     document.getElementById("order-time-display").innerHTML = `🕐 Order Time: ${timeStr}`;
-
     document.getElementById("cart-screen").style.display = "none";
     document.getElementById("order-summary-screen").style.display = "block";
 }
 
-function openPayment() {
+// ==================== KIRIM PESANAN KE GOOGLE SHEETS ====================
+async function openPayment() {
     const tableNum = document.getElementById("tableNumber").value.trim() || "—";
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const now = new Date();
@@ -480,30 +411,57 @@ function openPayment() {
 
     document.getElementById("payTableInfo").innerHTML = `🪑 Table: <strong>${tableNum}</strong>`;
     document.getElementById("payTotalInfo").innerHTML = `💰 Total: <strong>${formatPrice(total)}</strong>`;
-    document.getElementById("payTimeInfo").innerHTML = `🕐 Time: <strong>${timeStr}</strong>`;
+    document.getElementById("payTimeInfo").innerHTML  = `🕐 Time: <strong>${timeStr}</strong>`;
 
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "block";
+
+    // Kirim ke Google Sheets jika URL sudah diisi
+    if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbzVpULxcGXggOQoazV-PeJCQtgYA1sSsyaXa4B5zB9zCWboeooj_kO8PO36DNW9ZX1jJg/exec") {
+        try {
+            const orderData = {
+                action:      "newOrder",
+                tableNumber: tableNum,
+                items: cart.map(item => ({
+                    name:  item.name,
+                    qty:   item.quantity,
+                    price: item.price,
+                    notes: item.notes || ""
+                }))
+            };
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method:  "POST",
+                headers: { "Content-Type": "text/plain" },
+                body:    JSON.stringify(orderData)
+            });
+            const result = await res.json();
+            if (result.status === "ok") {
+                document.getElementById("payOrderId").innerHTML =
+                    `✅ Order ID: <strong>${result.orderId}</strong>`;
+                // Kosongkan cart setelah berhasil
+                cart = [];
+                updateCartBadge();
+            }
+        } catch (err) {
+            console.warn("Gagal kirim ke Sheets:", err);
+            document.getElementById("payOrderId").innerHTML =
+                `⚠️ Pesanan tersimpan lokal`;
+        }
+    }
 }
 
 function backToCart() {
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("cart-screen").style.display = "block";
 }
-
 function backToSummary() {
     document.getElementById("payment-screen").style.display = "none";
     document.getElementById("order-summary-screen").style.display = "block";
 }
 
 // ==================== SEARCH, SORT, CATEGORY ====================
-function searchMenu() {
-    currentSearchKeyword = document.getElementById("searchInput").value;
-    renderMenu();
-}
-
+function searchMenu() { currentSearchKeyword = document.getElementById("searchInput").value; renderMenu(); }
 function sortMenu() { renderMenu(); }
-
 function changeCategory(btn, category) {
     document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
@@ -516,12 +474,12 @@ function changeCategory(btn, category) {
 
 // ==================== CLOSE ON OUTSIDE CLICK ====================
 window.onclick = function(event) {
-    const modal = document.getElementById("modal");
+    const modal     = document.getElementById("modal");
     const cartModal = document.getElementById("cartModal");
-    const quickModal = document.getElementById("quickAddModal");
-    const favModal = document.getElementById("favModal");
-    if (event.target === modal) closeModal();
-    if (event.target === cartModal) closeCart();
+    const quickModal= document.getElementById("quickAddModal");
+    const favModal  = document.getElementById("favModal");
+    if (event.target === modal)      closeModal();
+    if (event.target === cartModal)  closeCart();
     if (event.target === quickModal) closeQuickAddModal();
-    if (event.target === favModal) closeFavModal();
+    if (event.target === favModal)   closeFavModal();
 };
