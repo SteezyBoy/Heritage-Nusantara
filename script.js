@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi dengan Pantauan Bill, status per item, cart hanya untuk menambah, payment di bill monitor
+// Alur: Cart → Proceed Order → Bill Monitor (status per item real-time) → Close Bill & Payment
 
-const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE"; // GANTI DENGAN URL ANDA
+const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
 let currentCategory = "all";
 let currentItem = null;
@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadMenuFromSheet();
     renderMenu();
     if (activeOrderId) {
+        // Jika ada pesanan aktif, buka bill monitor
         setTimeout(() => openBillMonitor(activeOrderId), 500);
     }
 });
@@ -73,7 +74,7 @@ function setDefaultMenu() {
     };
 }
 
-// ==================== DARK MODE, HELPERS ====================
+// ==================== DARK MODE ====================
 function toggleDarkMode() {
     isDarkMode = !isDarkMode;
     localStorage.setItem("hn_darkmode", isDarkMode);
@@ -84,6 +85,8 @@ function applyDarkMode() {
     const icon = document.getElementById("darkmodeIcon");
     if (icon) icon.textContent = isDarkMode ? "☀️" : "🌙";
 }
+
+// ==================== HELPERS ====================
 function formatPrice(price) {
     return "Rp " + price.toLocaleString("id-ID");
 }
@@ -104,7 +107,7 @@ function showShareToast(msg) {
     setTimeout(() => toast.classList.remove("show"), 2500);
 }
 
-// ==================== SKELETON & RENDER MENU ====================
+// ==================== SKELETON ====================
 function showSkeletonLoading() {
     const menuList = document.getElementById("menu-list");
     if (!menuList) return;
@@ -113,6 +116,8 @@ function showSkeletonLoading() {
         menuList.innerHTML += `<div class="skeleton-card"><div class="skeleton-img skeleton-pulse"></div><div class="skeleton-body"><div class="skeleton-tag skeleton-pulse"></div><div class="skeleton-title skeleton-pulse"></div><div class="skeleton-price skeleton-pulse"></div><div class="skeleton-desc skeleton-pulse"></div><div class="skeleton-btns"><div class="skeleton-btn skeleton-pulse"></div><div class="skeleton-btn skeleton-pulse"></div></div></div></div>`;
     }
 }
+
+// ==================== RENDER MENU ====================
 function getFilteredAndSortedItems() {
     let items = currentCategory === "all" ? getAllItems() : [...menuData[currentCategory]];
     if (currentSearchKeyword.trim() !== "") {
@@ -125,6 +130,7 @@ function getFilteredAndSortedItems() {
     else if (sortValue === "high") items.sort((a, b) => b.price - a.price);
     return items;
 }
+
 function renderMenu() {
     const items = getFilteredAndSortedItems();
     const menuList = document.getElementById("menu-list");
@@ -165,6 +171,7 @@ function renderMenu() {
         menuList.appendChild(card);
     });
 }
+
 function showEmptyState(keyword) {
     const menuList = document.getElementById("menu-list");
     menuList.innerHTML = `
@@ -322,7 +329,7 @@ function confirmQuickAdd() {
     showSuccessPopup();
 }
 
-// ==================== CART CORE (tanpa payment di sini) ====================
+// ==================== CART CORE ====================
 function addItemToCart(item, qty, notes) {
     const existing = cart.find(c => c.name === item.name);
     if (existing) {
@@ -397,42 +404,14 @@ function clearCart() {
 function openCart() {
     updateCart();
     document.getElementById("cartModal").style.display = "block";
-    document.getElementById("cart-screen").style.display = "block";
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("bill-monitor-screen").style.display = "none";
 }
 function closeCart() { document.getElementById("cartModal").style.display = "none"; }
-function backToCart() {
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("cart-screen").style.display = "block";
-}
-function proceedToOrder() {
+
+// ==================== PROCEED ORDER (kirim ke server, buka bill monitor) ====================
+async function proceedOrder() {
     if (cart.length === 0) { showShareToast("Cart kosong!"); return; }
-    const summaryContainer = document.getElementById("order-summary-items");
-    summaryContainer.innerHTML = "";
-    let total = 0;
-    cart.forEach(item => {
-        total += item.price * item.quantity;
-        summaryContainer.innerHTML += `
-        <div class="summary-item">
-            <div class="summary-item-left">
-                <span class="summary-item-qty">${item.quantity}×</span>
-                <span class="summary-item-name">${item.name}</span>
-                ${item.notes ? `<span class="summary-item-note">📝 ${item.notes}</span>` : ''}
-            </div>
-            <span class="summary-item-price">${formatPrice(item.price * item.quantity)}</span>
-        </div>`;
-    });
-    document.getElementById("order-summary-grand-total").innerText = formatPrice(total);
-    const now = new Date();
-    const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
-    document.getElementById("order-time-display").innerHTML = `🕐 Order Time: ${timeStr}`;
-    document.getElementById("cart-screen").style.display = "none";
-    document.getElementById("order-summary-screen").style.display = "block";
-}
-async function confirmOrder() {
-    const tableNum = document.getElementById("tableNumber").value.trim() || "—";
-    if (cart.length === 0) { showShareToast("Cart kosong!"); return; }
+    const tableNum = prompt("Masukkan nomor meja:", "Meja 1");
+    if (!tableNum) return;
     const orderData = {
         action: "newOrder",
         tableNumber: tableNum,
@@ -443,6 +422,9 @@ async function confirmOrder() {
             notes: item.notes || ""
         }))
     };
+    const confirmBtn = document.getElementById("proceedOrderBtn");
+    confirmBtn.innerText = "⏳ Memproses...";
+    confirmBtn.disabled = true;
     try {
         const res = await fetch(APPS_SCRIPT_URL, {
             method: "POST",
@@ -454,31 +436,40 @@ async function confirmOrder() {
             activeOrderId = result.orderId;
             localStorage.setItem("hn_active_order_id", activeOrderId);
             cart = [];
-            updateCartBadge();
+            updateCart();
             closeCart();
-            setTimeout(() => openBillMonitor(activeOrderId), 300);
-            showSuccessPopup("Pesanan berhasil! Pantau status di Bill Monitor.");
+            openBillMonitor(activeOrderId);
+            showSuccessPopup("Pesanan berhasil! Pantau status di bill monitor.");
         } else {
             showShareToast("Gagal membuat pesanan, coba lagi.");
         }
     } catch (err) {
         console.error(err);
         showShareToast("Error jaringan.");
+    } finally {
+        confirmBtn.innerText = "Proceed Order →";
+        confirmBtn.disabled = false;
     }
 }
 
-// ==================== BILL MONITOR (Pantauan Bill dengan status per item) ====================
+// ==================== BILL MONITOR ====================
+function openBillMonitorIfExists() {
+    if (activeOrderId) {
+        openBillMonitor(activeOrderId);
+    } else {
+        showShareToast("Belum ada pesanan aktif.");
+    }
+}
+
 async function openBillMonitor(orderId) {
     if (billMonitorInterval) clearInterval(billMonitorInterval);
     activeOrderId = orderId;
     localStorage.setItem("hn_active_order_id", orderId);
-    document.getElementById("bill-monitor-screen").style.display = "block";
-    document.getElementById("cart-screen").style.display = "none";
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("cartModal").style.display = "block";
+    document.getElementById("billModal").style.display = "flex";
     await loadBillData(orderId);
     billMonitorInterval = setInterval(() => loadBillData(orderId), 5000);
 }
+
 async function loadBillData(orderId) {
     if (!APPS_SCRIPT_URL) return;
     try {
@@ -490,71 +481,68 @@ async function loadBillData(orderId) {
             return;
         }
         document.getElementById("bill-order-id").innerHTML = `Order ID: ${order.id}`;
-        let itemsHtml = '<div class="order-items" style="margin-top:0;">';
+        let itemsHtml = '<div class="order-items">';
         order.items.forEach(item => {
             let statusText = '';
             if (item.status === 'Baru') statusText = '<span class="badge-baru">🔴 Baru</span>';
             else if (item.status === 'Diproses') statusText = '<span class="badge-diproses">🟡 Diproses</span>';
             else if (item.status === 'Selesai') statusText = '<span class="badge-selesai">🟢 Selesai</span>';
-            else statusText = '<span class="badge-baru">🔴 Baru</span>';
             itemsHtml += `
                 <div class="order-item-row">
                     <span>${item.qty}× ${item.name} ${item.notes ? `<em>(${item.notes})</em>` : ''}</span>
                     <span>${formatPrice(item.subtotal)}</span>
-                    <span>${statusText}</span>
+                    ${statusText}
                 </div>`;
         });
         itemsHtml += '</div>';
         document.getElementById("bill-items-list").innerHTML = itemsHtml;
         document.getElementById("bill-total").innerHTML = formatPrice(order.total);
-        const closeBtn = document.getElementById("closeBillBtn");
-        // Cek apakah semua item sudah Selesai
+        // Cek apakah semua item sudah selesai
         const allCompleted = order.items.every(item => item.status === 'Selesai');
-        if (allCompleted && order.items.length > 0) {
-            closeBtn.innerHTML = "💰 Tutup Bill & Selesai";
-            closeBtn.style.background = "linear-gradient(135deg, var(--green), var(--green2))";
+        const closeBtn = document.getElementById("closeBillBtn");
+        if (allCompleted) {
             closeBtn.disabled = false;
+            closeBtn.style.opacity = "1";
+            closeBtn.innerText = "💰 Close Bill & Payment";
         } else {
-            closeBtn.innerHTML = "💰 Close Bill & Payment (tunggu semua pesanan selesai)";
-            closeBtn.style.background = "linear-gradient(135deg, var(--accent), var(--accent2))";
             closeBtn.disabled = true;
+            closeBtn.style.opacity = "0.6";
+            closeBtn.innerText = "⏳ Tunggu semua pesanan selesai";
         }
     } catch (err) {
         console.error("Gagal load bill:", err);
     }
 }
-function closeBillMonitor() {
+
+function closeBillModal() {
     if (billMonitorInterval) clearInterval(billMonitorInterval);
-    document.getElementById("cartModal").style.display = "none";
-    localStorage.removeItem("hn_active_order_id");
-    activeOrderId = null;
-    location.reload();
+    document.getElementById("billModal").style.display = "none";
 }
+
 async function closeBillAndPayment() {
     if (!activeOrderId) return;
-    // Cek lagi apakah semua item selesai
+    // Cek apakah semua item selesai
     try {
         const res = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${activeOrderId}`);
         const data = await res.json();
-        const order = data.order;
-        if (!order || !order.items) return;
-        const allCompleted = order.items.every(item => item.status === 'Selesai');
+        const allCompleted = data.order.items.every(item => item.status === 'Selesai');
         if (!allCompleted) {
-            showShareToast("Belum semua pesanan selesai. Silakan tunggu.");
+            showShareToast("Pesanan belum selesai semua. Harap tunggu.");
             return;
         }
-        // Jika sudah semua selesai, tutup bill dan hapus sesi
-        closeBillMonitor();
-        showSuccessPopup("Terima kasih! Silakan pesan lagi.");
+        // Tampilkan QRIS payment (simulasi) dan setelah itu reset
+        if (confirm("Total tagihan: " + formatPrice(data.order.total) + "\nLanjutkan pembayaran QRIS?")) {
+            // Di sini bisa integrasi QRIS. Untuk sekarang, anggap berhasil.
+            showSuccessPopup("Pembayaran berhasil! Terima kasih.");
+            // Hapus active order
+            localStorage.removeItem("hn_active_order_id");
+            activeOrderId = null;
+            closeBillModal();
+            // Optional: reload halaman agar cart kosong dan bill monitor tertutup
+            location.reload();
+        }
     } catch (err) {
-        showShareToast("Error menutup bill.");
-    }
-}
-function openBillMonitorFromFab() {
-    if (activeOrderId) {
-        openBillMonitor(activeOrderId);
-    } else {
-        showShareToast("Tidak ada pesanan aktif.");
+        showShareToast("Error memproses pembayaran.");
     }
 }
 
@@ -577,8 +565,10 @@ window.onclick = function(event) {
     const cartModal = document.getElementById("cartModal");
     const quickModal = document.getElementById("quickAddModal");
     const favModal = document.getElementById("favModal");
+    const billModal = document.getElementById("billModal");
     if (event.target === modal) closeModal();
     if (event.target === cartModal) closeCart();
     if (event.target === quickModal) closeQuickAddModal();
     if (event.target === favModal) closeFavModal();
+    if (event.target === billModal) closeBillModal();
 };
