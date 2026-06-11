@@ -175,23 +175,23 @@ body{background:var(--bg);color:var(--text);min-height:100vh;}
         <div class="stat-card"><div class="icon">📅</div><strong>Ringkasan</strong><div id="statsSummary"></div></div>
     </div>
 
-    <!-- Panel History (simple filter) -->
-    <div class="panel" id="panel-history">
-        <div class="history-filter-simple">
-            <label>Filter berdasarkan:</label>
-            <select id="historyFilterType" onchange="toggleHistoryFilter()">
-                <option value="date">Tanggal</option>
-                <option value="month">Bulan</option>
-                <option value="year">Tahun</option>
-            </select>
-            <div id="historyDateDiv"><input type="date" id="historyDate" placeholder="dd/mm/yyyy"></div>
-            <div id="historyMonthDiv" style="display:none;"><input type="month" id="historyMonth"></div>
-            <div id="historyYearDiv" style="display:none;"><input type="number" id="historyYear" placeholder="2025" step="1"></div>
-            <button onclick="loadHistoryOrders()">Tampilkan</button>
-            <button class="reset" onclick="resetHistoryFilters()">Reset</button>
-        </div>
-        <div id="history-list"><div class="loading-spin"></div></div>
+<!-- ===== PANEL: HISTORY SIMPLE ===== -->
+<div class="panel" id="panel-history">
+    <div class="history-filter-simple">
+        <label>Filter berdasarkan:</label>
+        <select id="historyFilterType" onchange="toggleHistoryFilter()">
+            <option value="date">Tanggal</option>
+            <option value="month">Bulan</option>
+            <option value="year">Tahun</option>
+        </select>
+        <div id="historyDateDiv"><input type="date" id="historyDate" placeholder="dd/mm/yyyy"></div>
+        <div id="historyMonthDiv" style="display:none;"><input type="month" id="historyMonth"></div>
+        <div id="historyYearDiv" style="display:none;"><input type="number" id="historyYear" placeholder="2025" step="1"></div>
+        <button onclick="loadHistoryOrders()">Tampilkan</button>
+        <button class="reset" onclick="resetHistoryFilters()">Reset</button>
     </div>
+    <div id="history-list"><div class="loading-spin"></div></div>
+</div>
 
     <!-- Panel Setup -->
     <div class="panel" id="panel-setup">
