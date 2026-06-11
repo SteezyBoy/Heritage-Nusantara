@@ -895,3 +895,125 @@ footer h3 { color: var(--accent); margin-bottom: 8px; }
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* ===== BILL MONITOR MODAL ===== */
+.bill-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(8px);
+    z-index: 1002;
+    justify-content: center;
+    align-items: center;
+}
+.bill-content {
+    background: var(--surface);
+    width: 90%;
+    max-width: 450px;
+    border-radius: 28px;
+    padding: 25px;
+    position: relative;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.close-bill {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 28px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.bill-content h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--accent);
+}
+.bill-total {
+    font-size: 18px;
+    font-weight: 800;
+    text-align: right;
+    margin: 15px 0;
+    padding-top: 10px;
+    border-top: 2px solid var(--border);
+    color: var(--accent);
+}
+.bill-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+.close-bill-btn {
+    flex: 1;
+    border: none;
+    padding: 14px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--green), var(--green2));
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+.back-btn {
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    border: 1.5px solid var(--border);
+    border-radius: 15px;
+    background: var(--surface2);
+    cursor: pointer;
+}
+
+/* ===== FLOATING BUTTONS ===== */
+.fav-fab {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    background: var(--surface);
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    z-index: 99;
+    transition: transform 0.2s;
+}
+.fav-fab:hover { transform: scale(1.1); }
+
+.monitor-fab {
+    position: fixed;
+    bottom: 160px;
+    right: 20px;
+    background: var(--surface);
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    z-index: 99;
+    transition: transform 0.2s;
+}
+.monitor-fab:hover { transform: scale(1.1); }
+
+.cart-icon {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--header-gradient);
+    color: white;
+    border: none;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 26px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-accent);
+    z-index: 100;
+    transition: 0.3s;
+}
+.cart-icon:hover { transform: scale(1.05); }
