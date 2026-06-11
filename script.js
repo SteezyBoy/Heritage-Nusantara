@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi dengan Pantauan Bill, status per item, alur pemesanan baru
+// Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4DRQ8iJUYXCjlohppAN436BJroNDa7Cq3iYoRSglpYxRDnd8os32z7lGSlAmYRyuf2Q/exec"; // GANTI DENGAN URL ANDA
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
 
 let currentCategory = "all";
 let currentItem = null;
@@ -12,8 +12,6 @@ let quickAddItem = null;
 let quickQty = 1;
 let isDarkMode = localStorage.getItem("hn_darkmode") === "true";
 let menuData = { makanan: [], minuman: [], dessert: [] };
-let activeOrderId = localStorage.getItem("hn_active_order_id") || null;
-let billMonitorInterval = null;
 
 // ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", async () => {
@@ -21,15 +19,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     showSkeletonLoading();
     await loadMenuFromSheet();
     renderMenu();
-    // Jika ada pesanan aktif, buka bill monitor
-    if (activeOrderId) {
-        setTimeout(() => openBillMonitor(activeOrderId), 500);
-    }
 });
 
 // ==================== AMBIL MENU DARI GOOGLE SHEETS ====================
 async function loadMenuFromSheet() {
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+        console.warn("URL Apps Script belum diset, pakai menu default");
         setDefaultMenu();
         return;
     }
@@ -58,18 +53,18 @@ async function loadMenuFromSheet() {
 function setDefaultMenu() {
     menuData = {
         makanan: [
-            { name: "Tahu Isi Goreng", category: "Appetizer", bestSeller: true, outOfStock: false, image: "images/TAHU ISI GORENG.jpeg", desc: "Tahu renyah yang digoreng keemasan.", price: 35000 },
-            { name: "Lumpia Semarang", category: "Appetizer", bestSeller: false, outOfStock: false, image: "images/LUMPIA SEMARANG.jpeg", desc: "Camilan legendaris khas Semarang.", price: 45000 },
-            { name: "Soto Ayam Lamongan", category: "Soup", bestSeller: true, outOfStock: false, image: "images/SOTO AYAM LAMONGAN.jpeg", desc: "Kuah soto kuning kaya rempah.", price: 40000 },
-            { name: "Nasi Goreng Kampung", category: "Main Course", bestSeller: true, outOfStock: false, image: "images/NASI GORENG KAMPUNG.jpeg", desc: "Nasi goreng beraroma terasi.", price: 75000 },
-            { name: "Rendang Daging Sapi", category: "Main Course", bestSeller: true, outOfStock: false, image: "images/RENDANG DAGING SAPI.jpeg", desc: "Mahakarya kuliner Minang.", price: 90000 }
+            { name:"Tahu Isi Goreng", category:"Appetizer", bestSeller:true, outOfStock:false, image:"images/TAHU ISI GORENG.jpeg", desc:"Tahu renyah yang digoreng keemasan.", price:35000 },
+            { name:"Lumpia Semarang", category:"Appetizer", bestSeller:false, outOfStock:false, image:"images/LUMPIA SEMARANG.jpeg", desc:"Camilan legendaris khas Semarang.", price:45000 },
+            { name:"Soto Ayam Lamongan", category:"Soup", bestSeller:true, outOfStock:false, image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah.", price:40000 },
+            { name:"Nasi Goreng Kampung", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/NASI GORENG KAMPUNG.jpeg", desc:"Nasi goreng beraroma terasi.", price:75000 },
+            { name:"Rendang Daging Sapi", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/RENDANG DAGING SAPI.jpeg", desc:"Mahakarya kuliner Minang.", price:90000 }
         ],
         minuman: [
-            { name: "Es Teh", category: "Beverage", bestSeller: false, outOfStock: false, image: "images/ES TEH.jpeg", desc: "Seduhan teh melati dingin.", price: 25000 },
-            { name: "Kopi Bali", category: "Beverage", bestSeller: true, outOfStock: false, image: "images/KOPI BALI.jpeg", desc: "Kopi tubruk dari biji kopi Bali.", price: 30000 }
+            { name:"Es Teh", category:"Beverage", bestSeller:false, outOfStock:false, image:"images/ES TEH.jpeg", desc:"Seduhan teh melati dingin.", price:25000 },
+            { name:"Kopi Bali", category:"Beverage", bestSeller:true, outOfStock:false, image:"images/KOPI BALI.jpeg", desc:"Kopi tubruk dari biji kopi Bali.", price:30000 }
         ],
         dessert: [
-            { name: "Klepon", category: "Dessert", bestSeller: true, outOfStock: false, image: "images/KLEPON.jpeg", desc: "Jajanan pasar kenyal bertabur kelapa.", price: 30000 }
+            { name:"Klepon", category:"Dessert", bestSeller:true, outOfStock:false, image:"images/KLEPON.jpeg", desc:"Jajanan pasar kenyal bertabur kelapa.", price:30000 }
         ]
     };
 }
@@ -106,6 +101,8 @@ function showShareToast(msg) {
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2500);
 }
+
+// ==================== SKELETON ====================
 function showSkeletonLoading() {
     const menuList = document.getElementById("menu-list");
     if (!menuList) return;
@@ -128,6 +125,7 @@ function getFilteredAndSortedItems() {
     else if (sortValue === "high") items.sort((a, b) => b.price - a.price);
     return items;
 }
+
 function renderMenu() {
     const items = getFilteredAndSortedItems();
     const menuList = document.getElementById("menu-list");
@@ -168,6 +166,7 @@ function renderMenu() {
         menuList.appendChild(card);
     });
 }
+
 function showEmptyState(keyword) {
     const menuList = document.getElementById("menu-list");
     menuList.innerHTML = `
@@ -416,7 +415,7 @@ function openCart() {
     document.getElementById("cart-screen").style.display = "block";
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("bill-monitor-screen").style.display = "none";
+    document.getElementById("payment-confirm-screen").style.display = "none";
 }
 function closeCart() { document.getElementById("cartModal").style.display = "none"; }
 function openOrderSummary() {
@@ -443,16 +442,8 @@ function openOrderSummary() {
     document.getElementById("cart-screen").style.display = "none";
     document.getElementById("order-summary-screen").style.display = "block";
 }
-function backToCart() {
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("cart-screen").style.display = "block";
-}
-function backToSummary() {
-    document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("order-summary-screen").style.display = "block";
-}
 
-// ==================== ALUR PEMBAYARAN & BILL MONITOR ====================
+// ==================== KIRIM PESANAN KE GOOGLE SHEETS (setelah konfirmasi bayar) ====================
 let pendingOrderData = null;
 
 function openPayment() {
@@ -461,11 +452,16 @@ function openPayment() {
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const now = new Date();
     const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+
     document.getElementById("payTableInfo").innerHTML = `🪑 Table: <strong>${tableNum}</strong>`;
     document.getElementById("payTotalInfo").innerHTML = `💰 Total: <strong>${formatPrice(total)}</strong>`;
-    document.getElementById("payTimeInfo").innerHTML = `🕐 Time: <strong>${timeStr}</strong>`;
+    document.getElementById("payTimeInfo").innerHTML  = `🕐 Time: <strong>${timeStr}</strong>`;
+
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "block";
+    document.getElementById("payment-confirm-screen").style.display = "none";
+
+    // Simpan data pesanan untuk dikirim setelah konfirmasi
     pendingOrderData = {
         tableNumber: tableNum,
         items: cart.map(item => ({
@@ -479,11 +475,55 @@ function openPayment() {
     };
 }
 
-async function confirmPayment() {
+function confirmPayment() {
     if (!pendingOrderData) return;
+
+    // Tampilkan loading pada tombol
     const confirmBtn = document.querySelector("#payment-screen .checkout-btn");
-    confirmBtn.innerText = "⏳ Mengirim...";
+    const originalText = confirmBtn.innerText;
+    confirmBtn.innerText = "⏳ Memproses...";
     confirmBtn.disabled = true;
+
+    // Pindah ke layar konfirmasi loading
+    document.getElementById("payment-screen").style.display = "none";
+    document.getElementById("payment-confirm-screen").style.display = "block";
+    document.getElementById("confirm-status").innerHTML = "⏳ Mengirim pesanan ke dapur...";
+
+    sendOrderToServer().then(success => {
+        if (success) {
+            document.getElementById("confirm-status").innerHTML = "✅ Pesanan berhasil! Admin akan segera memproses.";
+            // Kosongkan cart
+            cart = [];
+            updateCartBadge();
+            // Tampilkan popup sukses
+            showSuccessPopup("Pembayaran berhasil dikonfirmasi! Pesanan Anda telah diterima.");
+            // Setelah 3 detik tutup modal cart
+            setTimeout(() => {
+                closeCart();
+                // Reset
+                document.getElementById("payment-confirm-screen").style.display = "none";
+                document.getElementById("payment-screen").style.display = "block";
+                confirmBtn.innerText = originalText;
+                confirmBtn.disabled = false;
+                pendingOrderData = null;
+            }, 3000);
+        } else {
+            document.getElementById("confirm-status").innerHTML = "❌ Gagal mengirim pesanan. Coba lagi.";
+            setTimeout(() => {
+                document.getElementById("payment-confirm-screen").style.display = "none";
+                document.getElementById("payment-screen").style.display = "block";
+                confirmBtn.innerText = originalText;
+                confirmBtn.disabled = false;
+            }, 2000);
+        }
+    });
+}
+
+async function sendOrderToServer() {
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+        console.warn("URL Apps Script belum diset");
+        return false;
+    }
     try {
         const orderData = {
             action: "newOrder",
@@ -497,104 +537,23 @@ async function confirmPayment() {
         });
         const result = await res.json();
         if (result.status === "ok") {
-            activeOrderId = result.orderId;
-            localStorage.setItem("hn_active_order_id", activeOrderId);
-            cart = [];
-            updateCartBadge();
-            closeCart();
-            setTimeout(() => openBillMonitor(activeOrderId), 300);
-            showSuccessPopup("Pesanan berhasil! Pantau status di Bill Monitor.");
+            return true;
         } else {
-            showShareToast("Gagal membuat pesanan, coba lagi.");
+            return false;
         }
     } catch (err) {
-        console.error(err);
-        showShareToast("Error jaringan.");
-    } finally {
-        confirmBtn.innerText = "✅ Sudah Bayar";
-        confirmBtn.disabled = false;
-        document.getElementById("payment-screen").style.display = "none";
-        pendingOrderData = null;
+        console.error("Gagal kirim order:", err);
+        return false;
     }
 }
 
-async function openBillMonitor(orderId) {
-    if (billMonitorInterval) clearInterval(billMonitorInterval);
-    activeOrderId = orderId;
-    localStorage.setItem("hn_active_order_id", orderId);
-    document.getElementById("bill-monitor-screen").style.display = "block";
-    document.getElementById("cart-screen").style.display = "none";
+function backToCart() {
     document.getElementById("order-summary-screen").style.display = "none";
+    document.getElementById("cart-screen").style.display = "block";
+}
+function backToSummary() {
     document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("cartModal").style.display = "block";
-    await loadBillData(orderId);
-    billMonitorInterval = setInterval(() => loadBillData(orderId), 5000);
-}
-
-async function loadBillData(orderId) {
-    if (!APPS_SCRIPT_URL) return;
-    try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${orderId}`);
-        const data = await res.json();
-        const order = data.order;
-        if (!order || !order.items) {
-            document.getElementById("bill-items-list").innerHTML = '<div class="empty-msg">Pesanan tidak ditemukan</div>';
-            return;
-        }
-        document.getElementById("bill-order-id").innerHTML = `Order ID: ${order.id}`;
-        let itemsHtml = '<div class="order-items" style="margin-top:0;">';
-        order.items.forEach(item => {
-            let statusBadge = '';
-            if (item.status === 'Baru') statusBadge = '<span class="item-status-badge status-baru">🔴 Baru</span>';
-            else if (item.status === 'Diproses') statusBadge = '<span class="item-status-badge status-diproses">🟡 Diproses</span>';
-            else if (item.status === 'Selesai') statusBadge = '<span class="item-status-badge status-selesai">🟢 Selesai</span>';
-            itemsHtml += `
-                <div class="order-item-row">
-                    <span>${item.qty}× ${item.name} ${item.notes ? `<em class="note">(${item.notes})</em>` : ''} ${statusBadge}</span>
-                    <span>${formatPrice(item.subtotal)}</span>
-                </div>`;
-        });
-        itemsHtml += '</div>';
-        document.getElementById("bill-items-list").innerHTML = itemsHtml;
-        document.getElementById("bill-total").innerHTML = formatPrice(order.total);
-        // Cek apakah semua item sudah Selesai
-        const allCompleted = order.items.every(item => item.status === 'Selesai');
-        const closeBtn = document.getElementById("closeBillBtn");
-        if (allCompleted) {
-            closeBtn.innerHTML = "💰 Tutup Bill & Selesai";
-            closeBtn.style.background = "linear-gradient(135deg, var(--green), var(--green2))";
-        } else {
-            closeBtn.innerHTML = "💰 Close Bill & Payment";
-            closeBtn.style.background = "linear-gradient(135deg, var(--accent), var(--accent2))";
-        }
-    } catch (err) {
-        console.error("Gagal load bill:", err);
-    }
-}
-
-function closeBillMonitor() {
-    if (billMonitorInterval) clearInterval(billMonitorInterval);
-    document.getElementById("cartModal").style.display = "none";
-    localStorage.removeItem("hn_active_order_id");
-    activeOrderId = null;
-    location.reload();
-}
-
-async function closeBillAndPayment() {
-    if (!activeOrderId) return;
-    try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${activeOrderId}`);
-        const data = await res.json();
-        const allCompleted = data.order.items.every(item => item.status === 'Selesai');
-        if (!allCompleted) {
-            showShareToast("Pesanan belum selesai semua. Tunggu hingga semua item selesai.");
-            return;
-        }
-        closeBillMonitor();
-        showSuccessPopup("Terima kasih! Silakan pesan lagi.");
-    } catch (err) {
-        showShareToast("Error menutup bill.");
-    }
+    document.getElementById("order-summary-screen").style.display = "block";
 }
 
 // ==================== SHARE ITEM ====================
@@ -602,7 +561,7 @@ function shareItem() {
     if (!currentItem) return;
     const text = `🍽️ ${currentItem.name}\n${formatPrice(currentItem.price)}\n\n${currentItem.desc}\n\n— Heritage Nusantara, Authentic Indonesian Cuisine`;
     if (navigator.share) {
-        navigator.share({ title: currentItem.name, text: text }).catch(() => { });
+        navigator.share({ title: currentItem.name, text: text }).catch(() => {});
     } else {
         navigator.clipboard.writeText(text).then(() => {
             showShareToast("📋 Menu info copied to clipboard!");
@@ -611,7 +570,7 @@ function shareItem() {
 }
 
 // ==================== CLOSE MODALS ON OUTSIDE CLICK ====================
-window.onclick = function (event) {
+window.onclick = function(event) {
     const modal = document.getElementById("modal");
     const cartModal = document.getElementById("cartModal");
     const quickModal = document.getElementById("quickAddModal");
