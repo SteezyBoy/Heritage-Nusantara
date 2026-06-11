@@ -581,15 +581,19 @@ function applyHistoryFilters() {
     const dateFilter = document.getElementById("historyDateFilter").value;
     const monthFilter = document.getElementById("historyMonthFilter").value;
     const yearFilter = document.getElementById("historyYearFilter").value;
+
     if (dateFilter) {
-        const targetDate = new Date(dateFilter).toLocaleDateString("id-ID");
-        filtered = filtered.filter(o => o.time.split(",")[0] === targetDate);
+        const targetDate = new Date(dateFilter);
+        filtered = filtered.filter(o => {
+            const orderDate = new Date(o.time);
+            return orderDate.toDateString() === targetDate.toDateString();
+        });
     }
     if (monthFilter) {
         const [year, month] = monthFilter.split("-");
         filtered = filtered.filter(o => {
             const date = new Date(o.time);
-            return date.getFullYear() == year && (date.getMonth()+1) == month;
+            return date.getFullYear() == year && (date.getMonth() + 1) == month;
         });
     }
     if (yearFilter) {
@@ -609,7 +613,7 @@ function renderHistory(orders) {
             <div class="order-header">
                 <div>
                     <div class="order-id">${order.id}</div>
-                    <div class="order-meta">🪑 Meja: ${order.table} &nbsp;•&nbsp; 🕐 Masuk: ${order.time}</div>
+                    <div class="order-meta">🪑 Meja: ${order.table} &nbsp;•&nbsp; 🕐 Masuk: ${new Date(order.time).toLocaleString("id-ID")}</div>
                     ${order.completedTime ? `<div class="order-meta">✅ Selesai: ${new Date(order.completedTime).toLocaleString("id-ID")}</div>` : ''}
                 </div>
                 <span class="order-badge badge-${(order.status||'').toLowerCase()}">${order.status}</span>
@@ -777,6 +781,9 @@ async function deleteMenuItem(globalIndex) {
     if (idx !== -1) arr.splice(idx, 1);
     renderAdminMenu();
     await syncMenuToSheets();
+    await loadMenuFromSheet();
+    renderAdminMenu();
+    showToast("Menu berhasil dihapus!");
 }
 
 async function syncMenuToSheets() {
