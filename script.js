@@ -1,12 +1,11 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
 // Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4DRQ8iJUYXCjlohppAN436BJroNDa7Cq3iYoRSglpYxRDnd8os32z7lGSlAmYRyuf2Q/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
 
 let currentCategory = "all";
 let currentItem = null;
 let cart = [];
-let favorites = JSON.parse(localStorage.getItem("hn_favorites") || "[]");
 let currentSearchKeyword = "";
 let quickAddItem = null;
 let quickQty = 1;
@@ -580,3 +579,50 @@ window.onclick = function(event) {
     if (event.target === quickModal) closeQuickAddModal();
     if (event.target === favModal) closeFavModal();
 };
+// ==================== BILL MONITOR SYSTEM ====================
+function openBillModal() {
+    document.getElementById("billModal").style.display = "flex";
+}
+
+function closeBillModal() {
+    document.getElementById("billModal").style.display = "none";
+    document.getElementById("billResult").style.display = "none";
+    document.getElementById("billOrderId").value = "";
+}
+
+async function checkBillStatus() {
+    const orderId = document.getElementById("billOrderId").value.trim();
+    const resultDiv = document.getElementById("billResult");
+    
+    if (!orderId) {
+        alert("Masukkan ID Pesanan terlebih dahulu.");
+        return;
+    }
+
+    resultDiv.style.display = "block";
+    resultDiv.innerHTML = `<div style="text-align:center;"><div class="loader" style="border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:24px; height:24px; animation:spin 1s linear infinite; margin:0 auto;"></div><p style="margin-top:10px; font-size:12px; color: var(--text-muted);">Mencari pesanan...</p></div>`;
+
+    try {
+        const response = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${orderId}`);
+        const data = await response.json();
+
+        if (data.status === "success" && data.order) {
+            const o = data.order;
+            let statusColor = o.status === "Selesai" ? "var(--green)" : (o.status === "Diproses" ? "var(--accent)" : "var(--text-muted)");
+            
+            resultDiv.innerHTML = `
+                <h4 style="margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:5px; color: var(--text-primary);">${o.orderId}</h4>
+                <p style="font-size:13px; margin-bottom:5px; color: var(--text-secondary);"><strong>Status:</strong> <span style="color:${statusColor}; font-weight:600;">${o.status || 'Menunggu Konfirmasi'}</span></p>
+                <p style="font-size:13px; margin-bottom:5px; color: var(--text-secondary);"><strong>Total:</strong> ${formatPrice(o.total)}</p>
+                <p style="font-size:13px; margin-bottom:10px; color: var(--text-secondary);"><strong>Tipe:</strong> ${o.orderType}</p>
+                <div style="font-size:12px; color:var(--text-muted); background:var(--bg); padding:8px; border-radius:6px; border: 1px solid var(--border);">
+                    ${o.items.map(i => `• ${i.qty}x ${i.name}`).join('<br>')}
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `<p style="color:var(--red); text-align:center; font-size:13px; margin:0;">Pesanan tidak ditemukan. Pastikan ID benar.</p>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<p style="color:var(--red); text-align:center; font-size:13px; margin:0;">Gagal mengambil data. Coba lagi nanti.</p>`;
+    }
+}
