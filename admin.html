@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin - Heritage Nusantara</title>
 <style>
-/* ===== CSS VARIABLES ===== */
+/* ===== CSS VARIABLES (sama seperti sebelumnya, ditambahkan sedikit) ===== */
 :root {
     --bg:#f4f7fb; --surface:#fff; --surface2:#f8fafc;
     --border:#e2e8f0; --text:#1e293b; --text2:#334155; --muted:#64748b;
@@ -36,7 +36,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .login-error{color:var(--red);font-size:13px;margin-top:8px;display:none;}
 
 /* ===== ADMIN LAYOUT ===== */
-.admin-wrap{display:none;max-width:860px;margin:0 auto;padding:20px;}
+.admin-wrap{display:none;max-width:1000px;margin:0 auto;padding:20px;}
 
 /* ===== TOPBAR ===== */
 .topbar{background:linear-gradient(135deg,#ff7b00,#ff5400);color:#fff;padding:16px 20px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;box-shadow:0 8px 25px rgba(255,84,0,.3);}
@@ -195,7 +195,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
         <div class="stat-card accent">
             <div class="icon">📋</div>
             <div class="value" id="statTotalOrders">—</div>
-            <div class="label">Total Pesanan</div>
+            <div class="label">Total Pesanan Selesai</div>
         </div>
         <div class="stat-card green">
             <div class="icon">💰</div>
@@ -217,10 +217,11 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
     <!-- Tab Nav -->
     <div class="tab-nav">
         <button class="tab-btn active" onclick="switchTab('orders',this)">
-            📋 Pesanan <span class="notif-dot" id="newOrderBadge" style="display:none">0</span>
+            📋 Pesanan Baru <span class="notif-dot" id="newOrderBadge" style="display:none">0</span>
         </button>
         <button class="tab-btn" onclick="switchTab('menu',this)">🍽 Kelola Menu</button>
         <button class="tab-btn" onclick="switchTab('stats',this)">📊 Statistik</button>
+        <button class="tab-btn" onclick="switchTab('history',this)">📜 History</button>
         <button class="tab-btn" onclick="switchTab('setup',this)">⚙️ Setup</button>
     </div>
 
@@ -262,6 +263,26 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
             <strong style="display:block;margin-bottom:12px;color:var(--text);">Ringkasan</strong>
             <div id="statsSummary" style="font-size:14px;color:var(--muted);">Memuat...</div>
         </div>
+    </div>
+
+    <!-- ===== PANEL: HISTORY ===== -->
+    <div class="panel" id="panel-history">
+        <div class="refresh-row">
+            <div class="order-filters" style="flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px;">Filter Tanggal:
+                    <input type="date" id="historyDateFilter" onchange="loadHistoryOrders()">
+                </label>
+                <label style="display:flex; align-items:center; gap:6px;">Bulan:
+                    <input type="month" id="historyMonthFilter" onchange="loadHistoryOrders()">
+                </label>
+                <label style="display:flex; align-items:center; gap:6px;">Tahun:
+                    <input type="number" id="historyYearFilter" placeholder="2025" step="1" onchange="loadHistoryOrders()">
+                </label>
+                <button class="refresh-btn" onclick="loadHistoryOrders()">Tampilkan</button>
+                <button class="refresh-btn" onclick="resetHistoryFilters()">Reset</button>
+            </div>
+        </div>
+        <div id="history-list"><div class="loading-spin"></div></div>
     </div>
 
     <!-- ===== PANEL: SETUP ===== -->
@@ -351,6 +372,7 @@ let currentFilter = "semua";
 let editingMenuItem = null;
 let adminDark = localStorage.getItem("hn_admin_dark") === "true";
 let autoRefreshTimer = null;
+let allHistoryOrders = [];
 
 // Data menu yang akan disinkronkan dengan Sheets
 let adminMenuData = { makanan: [], minuman: [], dessert: [] };
@@ -391,6 +413,7 @@ async function showAdmin() {
     await loadMenuFromSheet();
     loadOrders();
     loadStats();
+    loadHistoryOrders();
     renderAdminMenu();
     autoRefreshTimer = setInterval(() => {
         loadOrders(true);
@@ -416,6 +439,7 @@ function switchTab(name, btn) {
     btn.classList.add("active");
     if (name === "menu") renderAdminMenu();
     if (name === "stats") loadStats();
+    if (name === "history") loadHistoryOrders();
 }
 
 // ==================== FORMAT ====================
@@ -502,7 +526,7 @@ async function updateStatus(orderId, newStatus) {
         });
         const o = currentOrders.find(x => x.id === orderId);
         if (o) o.status = newStatus;
-        renderOrders(); loadStats();
+        renderOrders(); loadStats(); loadHistoryOrders();
     } catch(e) { alert("Gagal update status: " + e.message); }
 }
 
@@ -523,7 +547,6 @@ async function loadStats() {
         document.getElementById("statTotalRevenue").textContent = s.totalRevenue ? fmt(s.totalRevenue) : "Rp 0";
         document.getElementById("statTodayOrders").textContent  = s.todayOrders  || 0;
         document.getElementById("statTodayRevenue").textContent = s.todayRevenue ? fmt(s.todayRevenue) : "Rp 0";
-
         const topHtml = (s.topItems || []).map((it,i) => `
             <div class="top-item">
                 <span class="top-item-name">${i+1}. ${it.name}</span>
@@ -531,7 +554,7 @@ async function loadStats() {
             </div>`).join("") || '<div style="color:var(--muted);font-size:14px;">Belum ada data</div>';
         document.getElementById("topItemsList").innerHTML = topHtml;
         document.getElementById("statsSummary").innerHTML =
-            `Total pesanan masuk: <strong>${s.totalOrders || 0}</strong><br>
+            `Total pesanan selesai: <strong>${s.totalOrders || 0}</strong><br>
              Pendapatan total: <strong>${s.totalRevenue ? fmt(s.totalRevenue) : "Rp 0"}</strong><br>
              Pesanan hari ini: <strong>${s.todayOrders || 0}</strong>`;
     } catch(e) {
@@ -539,7 +562,74 @@ async function loadStats() {
     }
 }
 
-// ==================== MENU MANAGER (TERINTEGRASI SHEETS) ====================
+// ==================== HISTORY PESANAN ====================
+async function loadHistoryOrders() {
+    if (!SCRIPT_URL) return;
+    document.getElementById("history-list").innerHTML = '<div class="loading-spin"></div>';
+    try {
+        const res = await fetch(`${SCRIPT_URL}?action=getAllOrders`);
+        const data = await res.json();
+        allHistoryOrders = data.orders || [];
+        applyHistoryFilters();
+    } catch(e) {
+        document.getElementById("history-list").innerHTML = '<div class="empty-msg">Gagal memuat history</div>';
+    }
+}
+
+function applyHistoryFilters() {
+    let filtered = [...allHistoryOrders];
+    const dateFilter = document.getElementById("historyDateFilter").value;
+    const monthFilter = document.getElementById("historyMonthFilter").value;
+    const yearFilter = document.getElementById("historyYearFilter").value;
+    if (dateFilter) {
+        const targetDate = new Date(dateFilter).toLocaleDateString("id-ID");
+        filtered = filtered.filter(o => o.time.split(",")[0] === targetDate);
+    }
+    if (monthFilter) {
+        const [year, month] = monthFilter.split("-");
+        filtered = filtered.filter(o => {
+            const date = new Date(o.time);
+            return date.getFullYear() == year && (date.getMonth()+1) == month;
+        });
+    }
+    if (yearFilter) {
+        filtered = filtered.filter(o => new Date(o.time).getFullYear() == yearFilter);
+    }
+    renderHistory(filtered);
+}
+
+function renderHistory(orders) {
+    const container = document.getElementById("history-list");
+    if (orders.length === 0) {
+        container.innerHTML = '<div class="empty-msg">Tidak ada pesanan</div>';
+        return;
+    }
+    container.innerHTML = orders.map(order => `
+        <div class="order-card">
+            <div class="order-header">
+                <div>
+                    <div class="order-id">${order.id}</div>
+                    <div class="order-meta">🪑 Meja: ${order.table} &nbsp;•&nbsp; 🕐 Masuk: ${order.time}</div>
+                    ${order.completedTime ? `<div class="order-meta">✅ Selesai: ${new Date(order.completedTime).toLocaleString("id-ID")}</div>` : ''}
+                </div>
+                <span class="order-badge badge-${(order.status||'').toLowerCase()}">${order.status}</span>
+            </div>
+            <div class="order-items">
+                ${(order.items || []).map(it => `<div class="order-item-row"><span>${it.qty}× ${it.name}</span><span>${fmt(it.subtotal)}</span></div>`).join('')}
+                <div class="order-total-row"><span>Total</span><span>${fmt(order.total)}</span></div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function resetHistoryFilters() {
+    document.getElementById("historyDateFilter").value = "";
+    document.getElementById("historyMonthFilter").value = "";
+    document.getElementById("historyYearFilter").value = "";
+    loadHistoryOrders();
+}
+
+// ==================== MENU MANAGER ====================
 async function loadMenuFromSheet() {
     if (!SCRIPT_URL) {
         setDefaultMenu();
@@ -751,6 +841,7 @@ function saveSetup() {
         await loadMenuFromSheet();
         loadOrders();
         loadStats();
+        loadHistoryOrders();
         renderAdminMenu();
     }, 1500);
 }
