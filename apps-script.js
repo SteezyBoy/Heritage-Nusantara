@@ -1,234 +1,197 @@
-// ================================================================
-// HERITAGE NUSANTARA - Google Apps Script
-// Paste SELURUH kode ini ke Google Apps Script
-// Panduan: lihat PANDUAN-SETUP.md
-// ================================================================
+// ==================== APPS SCRIPT BACKEND ====================
+// Heritage Nusantara - Integrasi Google Sheets dengan Out of Stock, History, Waktu Selesai
 
 const SHEET_NAME_ORDERS = "Pesanan";
-const SHEET_NAME_MENU   = "Menu";
-const ADMIN_PASSWORD    = "heritage2026"; // Ganti password sesuai keinginan
-
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    if (data.action === "newOrder")   return handleNewOrder(data);
-    if (data.action === "updateMenu") return handleUpdateMenu(data);
-    return respond({ status: "error", message: "Unknown action" });
-  } catch(err) {
-    return respond({ status: "error", message: err.toString() });
-  }
-}
+const SHEET_NAME_MENU = "Menu";
 
 function doGet(e) {
-  try {
-    const action = e.parameter.action;
-    if (action === "getOrders") return handleGetOrders(e);
-    if (action === "getMenu")   return handleGetMenu(e);
-    if (action === "getStats")  return handleGetStats(e);
-    return respond({ status: "error", message: "Unknown action" });
-  } catch(err) {
-    return respond({ status: "error", message: err.toString() });
+  const action = e?.parameter?.action || "";
+  if (action === "getOrders") {
+    return getOrders();
+  } else if (action === "getStats") {
+    return getStats();
+  } else if (action === "getMenu") {
+    return getMenu();
+  } else if (action === "getAllOrders") {
+    return getAllOrders();
   }
-}
-
-// ── HELPERS ──────────────────────────────────────────────────────
-function respond(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok", message: "Heritage API" }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function doPost(e) {
+  const body = JSON.parse(e.postData.contents);
+  const action = body.action;
+  if (action === "newOrder") {
+    return saveOrder(body);
+  } else if (action === "updateStatus") {
+    return updateOrderStatus(body.orderId, body.newStatus);
+  } else if (action === "updateMenu") {
+    return updateMenu(body.menu);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Unknown action" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// -------------------- HELPER SHEET --------------------
 function getOrCreateSheet(name, headers) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(name);
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
   if (!sheet) {
-    sheet = ss.insertSheet(name);
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(name);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.getRange(1, 1, 1, headers.length)
-      .setBackground("#ff5400")
-      .setFontColor("#ffffff")
-      .setFontWeight("bold");
     sheet.setFrozenRows(1);
   }
   return sheet;
 }
 
-// ── ORDER HANDLERS ────────────────────────────────────────────────
-function handleNewOrder(data) {
-  const headers = [
-    "ID Pesanan","Waktu","No. Meja","Nama Item","Qty","Harga Satuan",
-    "Subtotal","Catatan","Total Order","Status"
-  ];
+// -------------------- ORDERS --------------------
+function saveOrder(data) {
+  const headers = ["ID Pesanan", "Waktu", "No. Meja", "Nama Item", "Qty", "Harga", "Subtotal", "Catatan", "Total", "Status", "Waktu Selesai"];
   const sheet = getOrCreateSheet(SHEET_NAME_ORDERS, headers);
-
-  const orderId   = "ORD-" + new Date().getTime();
-  const timestamp = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-  const tableNum  = data.tableNumber || "-";
-  const total     = data.items.reduce((s, i) => s + i.price * i.qty, 0);
-
-  data.items.forEach((item, idx) => {
-    sheet.appendRow([
-      orderId,
-      timestamp,
-      tableNum,
-      item.name,
-      item.qty,
-      item.price,
-      item.price * item.qty,
-      item.notes || "-",
-      idx === 0 ? total : "",   // total hanya di baris pertama
-      "Baru"                     // status default
+  const orderId = "ORD-" + Utilities.getUuid().slice(0, 8).toUpperCase();
+  const now = new Date();
+  let totalOrder = 0;
+  const rows = [];
+  for (let item of data.items) {
+    const subtotal = item.qty * item.price;
+    totalOrder += subtotal;
+    rows.push([
+      orderId, now, data.tableNumber, item.name, item.qty, item.price, subtotal, item.notes || "", 0, "Baru", ""
     ]);
-  });
-
-  // Auto-format kolom harga
-  const lastRow = sheet.getLastRow();
-  const startRow = lastRow - data.items.length + 1;
-  sheet.getRange(startRow, 6, data.items.length, 3)
-       .setNumberFormat("\"Rp \"#,##0");
-
-  // Warnai baris baru
-  sheet.getRange(startRow, 1, data.items.length, headers.length)
-       .setBackground("#fff7ed");
-
-  return respond({ status: "ok", orderId: orderId });
+  }
+  for (let i = 0; i < rows.length; i++) {
+    rows[i][8] = totalOrder;
+  }
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok", orderId }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
-function handleGetOrders(e) {
-  const sheet = getOrCreateSheet(SHEET_NAME_ORDERS, [
-    "ID Pesanan","Waktu","No. Meja","Nama Item","Qty","Harga Satuan",
-    "Subtotal","Catatan","Total Order","Status"
-  ]);
-
-  const rows = sheet.getDataRange().getValues();
-  if (rows.length <= 1) return respond({ status: "ok", orders: [] });
-
-  // Kelompokkan per ID pesanan
-  const orderMap = {};
-  rows.slice(1).forEach(row => {
-    const id = row[0];
-    if (!id) return;
-    if (!orderMap[id]) {
-      orderMap[id] = {
-        id:        id,
-        time:      row[1],
-        table:     row[2],
-        total:     row[8] || 0,
-        status:    row[9],
-        items:     []
-      };
-    }
-    orderMap[id].items.push({
-      name:     row[3],
-      qty:      row[4],
-      price:    row[5],
-      subtotal: row[6],
-      notes:    row[7]
-    });
-    if (row[8]) orderMap[id].total = row[8];
-    orderMap[id].status = row[9];
-  });
-
-  const orders = Object.values(orderMap).reverse();
-  return respond({ status: "ok", orders: orders });
-}
-
-function handleGetStats(e) {
+function getOrders() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_ORDERS);
-  if (!sheet) return respond({ status: "ok", stats: {} });
-
-  const rows = sheet.getDataRange().getValues().slice(1);
-  const today = new Date().toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" });
-
-  let totalRevenue = 0, todayRevenue = 0, totalOrders = 0, todayOrders = new Set();
-  const itemCount = {}, orderIds = new Set();
-
-  rows.forEach(row => {
-    const id = row[0]; if (!id) return;
-    const rowDate = new Date(row[1]).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" });
-    const subtotal = Number(row[6]) || 0;
-    const itemName = row[3];
-    const qty = Number(row[4]) || 0;
-
-    totalRevenue += subtotal;
-    itemCount[itemName] = (itemCount[itemName] || 0) + qty;
-
-    if (!orderIds.has(id)) {
-      orderIds.add(id);
-      totalOrders++;
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ orders: [] })).setMimeType(ContentService.MimeType.JSON);
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const ordersMap = new Map();
+  for (let row of data) {
+    const id = row[0];
+    if (!ordersMap.has(id)) {
+      ordersMap.set(id, {
+        id, time: row[1], table: row[2], total: row[8], status: row[9], items: []
+      });
     }
-    if (rowDate === today) {
-      todayRevenue += subtotal;
-      todayOrders.add(id);
-    }
-  });
-
-  const topItems = Object.entries(itemCount)
-    .sort((a,b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, qty]) => ({ name, qty }));
-
-  return respond({
-    status: "ok",
-    stats: {
-      totalRevenue,
-      todayRevenue,
-      totalOrders,
-      todayOrders: todayOrders.size,
-      topItems
-    }
-  });
+    ordersMap.get(id).items.push({
+      name: row[3], qty: row[4], price: row[5], subtotal: row[6], notes: row[7]
+    });
+  }
+  const orders = Array.from(ordersMap.values()).reverse();
+  return ContentService.createTextOutput(JSON.stringify({ orders })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── MENU HANDLERS ─────────────────────────────────────────────────
-function handleGetMenu(e) {
-  const sheet = getOrCreateSheet(SHEET_NAME_MENU, [
-    "Kategori","Nama","Harga","Deskripsi","Gambar","Best Seller"
-  ]);
-  const rows = sheet.getDataRange().getValues();
-  if (rows.length <= 1) return respond({ status: "ok", menu: [] });
-
-  const menu = rows.slice(1).map(r => ({
-    category:   r[0],
-    name:       r[1],
-    price:      Number(r[2]),
-    desc:       r[3],
-    image:      r[4],
-    bestSeller: r[5] === true || r[5] === "TRUE" || r[5] === "true"
-  }));
-  return respond({ status: "ok", menu: menu });
+function getAllOrders() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_ORDERS);
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ orders: [] })).setMimeType(ContentService.MimeType.JSON);
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const ordersMap = new Map();
+  for (let row of data) {
+    const id = row[0];
+    if (!ordersMap.has(id)) {
+      ordersMap.set(id, {
+        id, time: row[1], table: row[2], total: row[8], status: row[9], items: [], completedTime: row[10] || null
+      });
+    }
+    ordersMap.get(id).items.push({
+      name: row[3], qty: row[4], price: row[5], subtotal: row[6], notes: row[7]
+    });
+  }
+  const orders = Array.from(ordersMap.values()).reverse();
+  return ContentService.createTextOutput(JSON.stringify({ orders })).setMimeType(ContentService.MimeType.JSON);
 }
 
-function handleUpdateMenu(data) {
-  const sheet = getOrCreateSheet(SHEET_NAME_MENU, [
-    "Kategori","Nama","Harga","Deskripsi","Gambar","Best Seller"
-  ]);
-  // Hapus semua data (kecuali header), tulis ulang
-  if (sheet.getLastRow() > 1)
-    sheet.getRange(2, 1, sheet.getLastRow()-1, 6).clearContent();
-
-  const rows = data.menu.map(item => [
-    item.category, item.name, item.price,
-    item.desc, item.image, item.bestSeller
-  ]);
-  if (rows.length > 0)
-    sheet.getRange(2, 1, rows.length, 6).setValues(rows);
-
-  return respond({ status: "ok" });
-}
-
-// ── UPDATE STATUS ─────────────────────────────────────────────────
 function updateOrderStatus(orderId, newStatus) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_ORDERS);
   if (!sheet) return;
-  const rows = sheet.getDataRange().getValues();
-  rows.forEach((row, i) => {
-    if (i === 0) return;
-    if (row[0] === orderId) {
-      sheet.getRange(i+1, 10).setValue(newStatus);
-      const color = newStatus === "Selesai" ? "#dcfce7"
-                  : newStatus === "Diproses" ? "#fef9c3" : "#fff7ed";
-      sheet.getRange(i+1, 1, 1, 10).setBackground(color);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === orderId) {
+      sheet.getRange(i + 1, 10).setValue(newStatus);
+      if (newStatus === "Selesai") {
+        sheet.getRange(i + 1, 11).setValue(new Date());
+      }
     }
-  });
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok" })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getStats() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME_ORDERS);
+  let totalOrders = 0, totalRevenue = 0, todayOrders = 0, todayRevenue = 0, topItems = {};
+  if (sheet) {
+    const data = sheet.getDataRange().getValues();
+    const today = new Date().toDateString();
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const orderDate = new Date(row[1]).toDateString();
+      const orderTotal = row[8];
+      const status = row[9];
+      if (status === "Selesai") {
+        totalOrders++;
+        totalRevenue += orderTotal;
+        if (orderDate === today) {
+          todayOrders++;
+          todayRevenue += orderTotal;
+        }
+      }
+      const itemName = row[3];
+      const qty = row[4];
+      if (itemName) topItems[itemName] = (topItems[itemName] || 0) + qty;
+    }
+  }
+  const topItemsArr = Object.entries(topItems).map(([name, qty]) => ({ name, qty })).sort((a,b)=>b.qty - a.qty).slice(0,5);
+  const stats = { totalOrders, totalRevenue, todayOrders, todayRevenue, topItems: topItemsArr };
+  return ContentService.createTextOutput(JSON.stringify({ stats })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// -------------------- MENU (dengan outOfStock) --------------------
+function getMenu() {
+  const sheet = getOrCreateSheet(SHEET_NAME_MENU, ["category", "name", "price", "desc", "image", "bestSeller", "subcategory", "outOfStock"]);
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const menu = { makanan: [], minuman: [], dessert: [] };
+  for (let row of data) {
+    const [cat, name, price, desc, image, bestSeller, subcat, outOfStock] = row;
+    const item = { 
+      name, 
+      price: Number(price), 
+      desc, 
+      image, 
+      bestSeller: bestSeller === true || bestSeller === "true", 
+      category: subcat || cat,
+      outOfStock: outOfStock === true || outOfStock === "true"
+    };
+    if (menu[cat]) menu[cat].push(item);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ menu })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function updateMenu(menuArray) {
+  const sheet = getOrCreateSheet(SHEET_NAME_MENU, ["category", "name", "price", "desc", "image", "bestSeller", "subcategory", "outOfStock"]);
+  sheet.clearContents();
+  sheet.getRange(1,1,1,8).setValues([["category", "name", "price", "desc", "image", "bestSeller", "subcategory", "outOfStock"]]);
+  const rows = [];
+  for (let item of menuArray) {
+    rows.push([
+      item.category, 
+      item.name, 
+      item.price, 
+      item.desc, 
+      item.image, 
+      item.bestSeller ? "true" : "false", 
+      item.subcategory || item.category,
+      item.outOfStock ? "true" : "false"
+    ]);
+  }
+  if (rows.length) sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok" })).setMimeType(ContentService.MimeType.JSON);
 }
