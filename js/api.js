@@ -1,21 +1,19 @@
 /**
  * @file api.js
- * @description Lapisan komunikasi jaringan (CORS & Redirect Bypass Version).
- * Fokus pada penanganan keamanan Google Apps Script (Redirect 302 & CORS).
+ * @description Lapisan komunikasi jaringan (Enterprise Deep Scanner Version).
+ * Menembus CORS dan mencari array data makanan hingga ke lapisan objek terdalam.
  */
 
 const API = {
     async getMenuData() {
-        console.log("[API] Mencoba menembus koneksi ke Google Apps Script...");
+        console.log("[API] Menjalankan protokol sinkronisasi dengan server...");
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
-            // PERBAIKAN KRITIS: Memastikan browser mengikuti redirect Google (302)
-            // tanpa mengirimkan header yang bisa memicu blokir CORS
             const response = await fetch(`${CONFIG.APP_SCRIPT_URL}?action=getMenu`, {
                 method: 'GET',
-                redirect: 'follow', // Wajib untuk melewati redirect eksekusi Google
+                redirect: 'follow',
                 signal: controller.signal
             });
 
@@ -23,48 +21,61 @@ const API = {
 
             const rawText = await response.text();
 
-            // DETEKSI BLOKIR GOOGLE: Jika yang kembali adalah halaman HTML (biasanya halaman login Google)
             if (rawText.trim().startsWith('<')) {
-                console.error("[API ERROR] Terhalang Keamanan Google. Server mengembalikan HTML:", rawText.substring(0, 200));
-                
-                // Menampilkan error langsung ke layar agar kita tahu pasti penyebabnya
-                UI.showToast("Akses API diblokir oleh Google. Cek Console (F12).", "error");
+                console.error("[API ERROR] Respons server berupa HTML. Akses kemungkinan diblokir.");
                 return null;
             }
 
-            // Parsing JSON dengan aman
             const rawData = JSON.parse(rawText);
-            
-            // Pencarian Array Otomatis
-            let validMenuArray = [];
-            if (Array.isArray(rawData)) {
-                validMenuArray = rawData;
-            } else if (rawData && typeof rawData === 'object') {
-                for (const key in rawData) {
-                    if (Array.isArray(rawData[key])) {
-                        validMenuArray = rawData[key];
-                        break;
+
+            // ==========================================
+            // [X-RAY PAYLOAD] FITUR DIAGNOSTIK PROFESIONAL
+            // ==========================================
+            console.groupCollapsed("📦 [API DATA PAYLOAD] Klik untuk melihat isi asli dari Google Sheets");
+            console.log(JSON.stringify(rawData, null, 2));
+            console.groupEnd();
+
+            // ==========================================
+            // ALGORITMA DEEP SCANNER (Pencari Array Rekursif)
+            // ==========================================
+            function extractValidArray(obj) {
+                if (Array.isArray(obj)) return obj;
+                if (obj !== null && typeof obj === 'object') {
+                    for (const key in obj) {
+                        const found = extractValidArray(obj[key]);
+                        if (found && Array.isArray(found)) return found;
                     }
                 }
+                return null; // Tidak ada array di lapisan ini
+            }
+
+            const validMenuArray = extractValidArray(rawData);
+
+            // ANALISIS KEGAGALAN PRESISI TINGGI
+            if (!validMenuArray) {
+                throw new Error("JSON berhasil diterima, tapi sama sekali tidak mengandung struktur Array.");
             }
 
             if (validMenuArray.length === 0) {
-                console.error("[API ERROR] JSON berhasil ditarik, tapi tidak ada Array makanan di dalamnya.");
-                return null;
+                throw new Error("Array berhasil ditemukan, TAPI KOSONG (0 item). Pastikan Apps Script Anda membaca nama Sheet (Tab) yang benar dan baris data tidak kosong.");
             }
 
-            return validMenuArray.filter(item => item.name);
+            // Pembersihan data (Sanitasi kolom yang wajib ada)
+            const sanitizedMenu = validMenuArray.filter(item => item.name);
+
+            if (sanitizedMenu.length === 0) {
+                throw new Error("Data ditemukan, tapi tidak ada yang memiliki properti 'name'. Pastikan header (baris 1) di Google Sheets Anda sudah benar.");
+            }
+
+            console.log(`[API] Ekstraksi sukses. ${sanitizedMenu.length} menu siap dihidangkan ke UI.`);
+            return sanitizedMenu;
 
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error(`[API FATAL ERROR] Alasan spesifik: ${error.message}`);
             
-            // Jika error berupa "Failed to fetch", biasanya karena dibuka via file:/// 
-            // atau Web App Google belum di-set 'Anyone'
-            if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-                UI.showToast("Koneksi diblokir oleh Browser (CORS).", "error");
-            }
-            return null;
+            // Menampilkan laporan error yang sangat spesifik
+            console.error(`[API FATAL ERROR] ${error.message}`);
+            return null; 
         }
     }
 };
