@@ -217,19 +217,21 @@ body{background:var(--bg);color:var(--text);min-height:100vh;}
 // ==================== KONFIGURASI ====================
 let SCRIPT_URL = localStorage.getItem("hn_admin_url") || "";
 let currentOrders = [];
-let currentFilter = "all";
+let currentFilter = "semua";
 let editingMenuItem = null;
 let adminDark = localStorage.getItem("hn_admin_dark") === "true";
 let autoRefreshTimer = null;
 let allHistoryOrders = [];
 let adminMenuData = { makanan: [], minuman: [], dessert: [] };
 
+// ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", () => {
     applyAdminDark();
     if (localStorage.getItem("hn_admin_session") === "ok") showAdmin();
     if (SCRIPT_URL) document.getElementById("setupUrl").value = SCRIPT_URL;
 });
 
+// ==================== LOGIN ====================
 function doLogin() {
     const user = document.getElementById("loginUser").value.trim();
     const pass = document.getElementById("loginPass").value;
@@ -247,6 +249,7 @@ function doLogout() {
     clearInterval(autoRefreshTimer);
     document.getElementById("adminWrap").style.display = "none";
     document.getElementById("loginWrap").style.display = "flex";
+    document.getElementById("loginPass").value = "";
 }
 async function showAdmin() {
     document.getElementById("loginWrap").style.display = "none";
@@ -273,7 +276,7 @@ function switchTab(name, btn) {
 }
 function fmt(price) { return "Rp " + Number(price).toLocaleString("id-ID"); }
 
-// ==================== ORDERS ====================
+// ==================== ORDERS (status per item) ====================
 async function loadOrders(silent = false) {
     if (!silent) document.getElementById("orders-list").innerHTML = '<div class="loading-spin"></div>';
     if (!SCRIPT_URL) { document.getElementById("orders-list").innerHTML = '<div class="empty-msg">Setup URL dulu</div>'; return; }
@@ -282,6 +285,7 @@ async function loadOrders(silent = false) {
         const data = await res.json();
         currentOrders = data.orders || [];
         renderOrders();
+        document.getElementById("lastRefreshTime").textContent = "Terakhir diperbarui: " + new Date().toLocaleTimeString("id-ID");
     } catch(e) { if(!silent) document.getElementById("orders-list").innerHTML = '<div class="empty-msg">Gagal memuat</div>'; }
 }
 function filterOrders(status, btn) {
@@ -292,17 +296,22 @@ function filterOrders(status, btn) {
 }
 function renderOrders() {
     const list = document.getElementById("orders-list");
-    let filtered = currentFilter === "all" ? currentOrders : currentOrders.filter(o => o.status === currentFilter);
+    let filtered = currentFilter === "semua" ? currentOrders : currentOrders.filter(o => o.status === currentFilter);
     if (filtered.length === 0) { list.innerHTML = '<div class="empty-msg">Tidak ada pesanan</div>'; return; }
     list.innerHTML = filtered.map(order => `
         <div class="order-card">
-            <div class="order-header"><div><div class="order-id">${order.id}</div><div class="order-meta">🪑 Meja: ${order.table} • 🕐 ${new Date(order.time).toLocaleString()}</div></div></div>
+            <div class="order-header">
+                <div>
+                    <div class="order-id">${order.id}</div>
+                    <div class="order-meta">🪑 Meja: ${order.table} • 🕐 ${new Date(order.time).toLocaleString()}</div>
+                </div>
+            </div>
             <div class="order-items">
                 ${order.items.map(item => `
-                    <div class="order-item-row">
-                        <span>${item.qty}× ${item.name} ${item.notes ? `<em>(${item.notes})</em>` : ''}</span>
+                    <div class="order-item-row" style="justify-content:space-between; align-items:center;">
+                        <span>${item.qty}× ${item.name} ${item.notes ? `<em class="note">(${item.notes})</em>` : ''}</span>
                         <span>${fmt(item.subtotal)}</span>
-                        <select class="item-status" data-order="${order.id}" data-item="${item.name}" onchange="updateItemStatus('${order.id}','${item.name.replace(/'/g, "\\'")}',this.value)">
+                        <select class="item-status-select" data-order="${order.id}" data-item="${item.name.replace(/'/g, "\\'")}" onchange="updateItemStatus('${order.id}','${item.name.replace(/'/g, "\\'")}',this.value)">
                             <option value="Baru" ${item.status === 'Baru' ? 'selected' : ''}>🔴 Baru</option>
                             <option value="Diproses" ${item.status === 'Diproses' ? 'selected' : ''}>🟡 Diproses</option>
                             <option value="Selesai" ${item.status === 'Selesai' ? 'selected' : ''}>🟢 Selesai</option>
@@ -323,6 +332,7 @@ async function updateItemStatus(orderId, itemName, newStatus) {
         });
         loadOrders(true);
         loadStats();
+        loadHistoryOrders();
     } catch(e) { alert("Gagal update status"); }
 }
 
@@ -337,8 +347,9 @@ async function loadStats() {
         document.getElementById("statTotalRevenue").textContent = s.totalRevenue ? fmt(s.totalRevenue) : "Rp 0";
         document.getElementById("statTodayOrders").textContent = s.todayOrders || 0;
         document.getElementById("statTodayRevenue").textContent = s.todayRevenue ? fmt(s.todayRevenue) : "Rp 0";
-        document.getElementById("topItemsList").innerHTML = (s.topItems || []).map((it,i)=>`<div>${i+1}. ${it.name} (${it.qty}x)</div>`).join('') || 'Belum ada data';
-        document.getElementById("statsSummary").innerHTML = `Total pesanan selesai: ${s.totalOrders}<br>Pendapatan total: ${fmt(s.totalRevenue)}<br>Pesanan hari ini: ${s.todayOrders}`;
+        const topHtml = (s.topItems || []).map((it,i) => `<div class="top-item"><span class="top-item-name">${i+1}. ${it.name}</span><span class="top-item-qty">${it.qty}× terjual</span></div>`).join('') || 'Belum ada data';
+        document.getElementById("topItemsList").innerHTML = topHtml;
+        document.getElementById("statsSummary").innerHTML = `Total pesanan selesai: <strong>${s.totalOrders || 0}</strong><br>Pendapatan total: <strong>${s.totalRevenue ? fmt(s.totalRevenue) : "Rp 0"}</strong><br>Pesanan hari ini: <strong>${s.todayOrders || 0}</strong>`;
     } catch(e) { console.warn(e); }
 }
 
@@ -390,7 +401,13 @@ function renderHistory(orders) {
     if (orders.length === 0) { container.innerHTML = '<div class="empty-msg">Tidak ada pesanan</div>'; return; }
     container.innerHTML = orders.map(order => `
         <div class="order-card">
-            <div class="order-header"><div><div class="order-id">${order.id}</div><div class="order-meta">🪑 Meja: ${order.table} • 🕐 ${new Date(order.time).toLocaleString()}</div>${order.closed ? '<div class="order-meta">✅ Closed</div>' : ''}</div></div>
+            <div class="order-header">
+                <div>
+                    <div class="order-id">${order.id}</div>
+                    <div class="order-meta">🪑 Meja: ${order.table} • 🕐 ${new Date(order.time).toLocaleString()}</div>
+                    ${order.completedTime ? `<div class="order-meta">✅ Selesai: ${new Date(order.completedTime).toLocaleString()}</div>` : ''}
+                </div>
+            </div>
             <div class="order-items">
                 ${order.items.map(item => `<div class="order-item-row"><span>${item.qty}× ${item.name}</span><span>${fmt(item.subtotal)}</span><span>${item.status}</span></div>`).join('')}
                 <div class="order-total-row"><span>Total</span><span>${fmt(order.total)}</span></div>
@@ -407,7 +424,7 @@ function resetHistoryFilters() {
     loadHistoryOrders();
 }
 
-// ==================== MENU MANAGER ====================
+// ==================== MENU MANAGER (delete fix) ====================
 async function loadMenuFromSheet() {
     if (!SCRIPT_URL) { setDefaultMenu(); renderAdminMenu(); return; }
     try {
@@ -467,6 +484,8 @@ async function saveMenuItem() {
     closeMenuModal();
     renderAdminMenu();
     await syncMenuToSheets();
+    await loadMenuFromSheet(); // refresh dari sheets
+    renderAdminMenu();
 }
 async function deleteMenuItem(idx) {
     const item = getAllAdminItems()[idx];
@@ -476,7 +495,7 @@ async function deleteMenuItem(idx) {
     if (index !== -1) arr.splice(index, 1);
     renderAdminMenu();
     await syncMenuToSheets();
-    await loadMenuFromSheet(); // refresh dari sheets untuk memastikan
+    await loadMenuFromSheet();
     renderAdminMenu();
     showToast("Menu berhasil dihapus!");
 }
