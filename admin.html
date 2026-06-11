@@ -339,45 +339,18 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 </div>
 
 <script>
-// ==================== CONFIG ====================
+// ==================== KONFIGURASI ====================
 const ADMIN_USERS = { "admin": "heritage2026" };
 let SCRIPT_URL = localStorage.getItem("hn_admin_url") || "";
 let currentOrders = [];
 let currentFilter = "semua";
-let editingMenuIndex = null;
+let editingMenuIndex = null; // untuk edit global (tidak dipakai, kita pakai item langsung)
+let editingMenuItem = null;   // menyimpan item yang sedang diedit
 let adminDark = localStorage.getItem("hn_admin_dark") === "true";
 let autoRefreshTimer = null;
 
-// ==================== MENU DATA (lokal) ====================
-let adminMenuData = {
-    makanan: [
-        { name:"Tahu Isi Goreng",    category:"Appetizer",   bestSeller:true,  image:"images/TAHU ISI GORENG.jpeg",    desc:"Tahu renyah yang digoreng keemasan, berisi sayuran segar pilihan.", price:35000 },
-        { name:"Lumpia Semarang",    category:"Appetizer",   bestSeller:false, image:"images/LUMPIA SEMARANG.jpeg",    desc:"Camilan legendaris khas Semarang dengan isian rebung manis gurih.", price:45000 },
-        { name:"Perkedel Kentang",   category:"Appetizer",   bestSeller:false, image:"images/PERKEDEL KENTANG.jpeg",   desc:"Perkedel kentang lembut dengan paduan bumbu rempah tradisional.", price:45000 },
-        { name:"Soto Ayam Lamongan", category:"Soup",        bestSeller:true,  image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah dengan suwiran ayam kampung.", price:40000 },
-        { name:"Soup Buntut",        category:"Soup",        bestSeller:true,  image:"images/SOP BUNTUT.jpeg",         desc:"Potongan buntut sapi premium yang dimasak perlahan.", price:70000 },
-        { name:"Soup Ikan Batam",    category:"Soup",        bestSeller:false, image:"images/SOUP IKAN BATAM.jpeg",    desc:"Sop ikan segar khas perairan Kepulauan Riau.", price:70000 },
-        { name:"Nasi Goreng Kampung",category:"Main Course", bestSeller:true,  image:"images/NASI GORENG KAMPUNG.jpeg",desc:"Nasi goreng beraroma terasi khas pedesaan.", price:75000 },
-        { name:"Ayam Bakar Taliwang",category:"Main Course", bestSeller:true,  image:"images/AYAM BAKAR TALIWANG.jpeg",desc:"Ayam kampung bakar bumbu pedas manis khas Lombok.", price:85000 },
-        { name:"Rendang Daging Sapi",category:"Main Course", bestSeller:true,  image:"images/RENDANG DAGING SAPI.jpeg",desc:"Mahakarya kuliner Minang. Daging sapi pilihan.", price:90000 }
-    ],
-    minuman: [
-        { name:"Es Teh",       category:"Beverage", bestSeller:false, image:"images/ES TEH.jpeg",        desc:"Seduhan teh melati pilihan yang dihidangkan dingin.", price:25000 },
-        { name:"Es Kelapa Muda",category:"Beverage",bestSeller:true,  image:"images/ES KELAPA MUDA.jpeg",desc:"Air kelapa segar murni dengan serutan daging kelapa muda.", price:65000 },
-        { name:"Teh Rosella",  category:"Beverage", bestSeller:false, image:"images/TEH ROSELLA.jpeg",   desc:"Seduhan bunga rosella merah merona.", price:35000 },
-        { name:"Es Jeruk",     category:"Beverage", bestSeller:false, image:"images/ES JERUK.jpeg",      desc:"Perasan jeruk peras asli yang manis dan menyegarkan.", price:30000 },
-        { name:"Teh Tarik",    category:"Beverage", bestSeller:true,  image:"images/TEH TARIK.jpeg",     desc:"Paduan teh hitam pekat dan susu kental manis.", price:35000 },
-        { name:"Wedang Jahe",  category:"Beverage", bestSeller:false, image:"images/WEDANG JAHE.jpeg",   desc:"Minuman tradisional penghangat tubuh dari jahe bakar.", price:25000 },
-        { name:"Beer Pletok",  category:"Beverage", bestSeller:false, image:"images/BEER PLETOK.jpeg",   desc:"Minuman rempah non-alkohol khas Betawi.", price:45000 },
-        { name:"Kopi Bali",    category:"Beverage", bestSeller:true,  image:"images/KOPI BALI.jpeg",     desc:"Kopi tubruk dari biji kopi Bali premium.", price:30000 },
-        { name:"Equil Water",  category:"Beverage", bestSeller:false, image:"images/EQUIL Water.jpeg",   desc:"Air mineral alami berkarbonasi premium.", price:50000 }
-    ],
-    dessert: [
-        { name:"Klepon",         category:"Dessert", bestSeller:true,  image:"images/KLEPON.jpeg",         desc:"Jajanan pasar kenyal bertabur kelapa parut segar.", price:30000 },
-        { name:"Puding Gula Aren",category:"Dessert",bestSeller:false, image:"images/PUDING GULA AREN.jpeg",desc:"Makanan penutup lembut dengan manisnya gula aren.", price:45000 },
-        { name:"Es Cendol",      category:"Dessert", bestSeller:true,  image:"images/ES CENDOL.jpeg",      desc:"Paduan kenyalnya cendol pandan dan manisnya gula aren.", price:45000 }
-    ]
-};
+// Data menu yang akan disinkronkan dengan Sheets
+let adminMenuData = { makanan: [], minuman: [], dessert: [] };
 
 // ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", () => {
@@ -406,12 +379,14 @@ function doLogout() {
     document.getElementById("loginWrap").style.display = "flex";
     document.getElementById("loginPass").value = "";
 }
-function showAdmin() {
+async function showAdmin() {
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("adminWrap").style.display = "block";
     const now = new Date();
     document.getElementById("adminGreet").textContent =
         `Selamat ${now.getHours()<12?"Pagi":now.getHours()<17?"Siang":"Malam"}, Admin 👋`;
+    // Load data dari Sheets
+    await loadMenuFromSheet();
     loadOrders();
     loadStats();
     renderAdminMenu();
@@ -564,12 +539,75 @@ async function loadStats() {
     }
 }
 
-// ==================== MENU MANAGER ====================
+// ==================== MENU MANAGER (TERINTEGRASI SHEETS) ====================
+async function loadMenuFromSheet() {
+    if (!SCRIPT_URL) {
+        // Jika belum ada URL, pakai default
+        setDefaultMenu();
+        renderAdminMenu();
+        return;
+    }
+    try {
+        const res = await fetch(`${SCRIPT_URL}?action=getMenu`);
+        const data = await res.json();
+        if (data.menu) {
+            adminMenuData = data.menu;
+            // Pastikan setiap item memiliki field category (subkategori)
+            for (let cat in adminMenuData) {
+                adminMenuData[cat] = adminMenuData[cat].map(item => ({
+                    ...item,
+                    price: Number(item.price),
+                    bestSeller: item.bestSeller === true || item.bestSeller === "true",
+                    category: item.category || (cat === "makanan" ? "Main Course" : (cat === "minuman" ? "Beverage" : "Dessert"))
+                }));
+            }
+        } else {
+            setDefaultMenu();
+        }
+    } catch (e) {
+        console.warn("Gagal load menu dari Sheets, pakai default", e);
+        setDefaultMenu();
+    }
+    renderAdminMenu();
+}
+
+function setDefaultMenu() {
+    adminMenuData = {
+        makanan: [
+            { name:"Tahu Isi Goreng",    category:"Appetizer",   bestSeller:true,  image:"images/TAHU ISI GORENG.jpeg",    desc:"Tahu renyah yang digoreng keemasan, berisi sayuran segar pilihan.", price:35000 },
+            { name:"Lumpia Semarang",    category:"Appetizer",   bestSeller:false, image:"images/LUMPIA SEMARANG.jpeg",    desc:"Camilan legendaris khas Semarang dengan isian rebung manis gurih.", price:45000 },
+            { name:"Perkedel Kentang",   category:"Appetizer",   bestSeller:false, image:"images/PERKEDEL KENTANG.jpeg",   desc:"Perkedel kentang lembut dengan paduan bumbu rempah tradisional.", price:45000 },
+            { name:"Soto Ayam Lamongan", category:"Soup",        bestSeller:true,  image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah dengan suwiran ayam kampung.", price:40000 },
+            { name:"Soup Buntut",        category:"Soup",        bestSeller:true,  image:"images/SOP BUNTUT.jpeg",         desc:"Potongan buntut sapi premium yang dimasak perlahan.", price:70000 },
+            { name:"Soup Ikan Batam",    category:"Soup",        bestSeller:false, image:"images/SOUP IKAN BATAM.jpeg",    desc:"Sop ikan segar khas perairan Kepulauan Riau.", price:70000 },
+            { name:"Nasi Goreng Kampung",category:"Main Course", bestSeller:true,  image:"images/NASI GORENG KAMPUNG.jpeg",desc:"Nasi goreng beraroma terasi khas pedesaan.", price:75000 },
+            { name:"Ayam Bakar Taliwang",category:"Main Course", bestSeller:true,  image:"images/AYAM BAKAR TALIWANG.jpeg",desc:"Ayam kampung bakar bumbu pedas manis khas Lombok.", price:85000 },
+            { name:"Rendang Daging Sapi",category:"Main Course", bestSeller:true,  image:"images/RENDANG DAGING SAPI.jpeg",desc:"Mahakarya kuliner Minang. Daging sapi pilihan.", price:90000 }
+        ],
+        minuman: [
+            { name:"Es Teh",       category:"Beverage", bestSeller:false, image:"images/ES TEH.jpeg",        desc:"Seduhan teh melati pilihan yang dihidangkan dingin.", price:25000 },
+            { name:"Es Kelapa Muda",category:"Beverage",bestSeller:true,  image:"images/ES KELAPA MUDA.jpeg",desc:"Air kelapa segar murni dengan serutan daging kelapa muda.", price:65000 },
+            { name:"Teh Rosella",  category:"Beverage", bestSeller:false, image:"images/TEH ROSELLA.jpeg",   desc:"Seduhan bunga rosella merah merona.", price:35000 },
+            { name:"Es Jeruk",     category:"Beverage", bestSeller:false, image:"images/ES JERUK.jpeg",      desc:"Perasan jeruk peras asli yang manis dan menyegarkan.", price:30000 },
+            { name:"Teh Tarik",    category:"Beverage", bestSeller:true,  image:"images/TEH TARIK.jpeg",     desc:"Paduan teh hitam pekat dan susu kental manis.", price:35000 },
+            { name:"Wedang Jahe",  category:"Beverage", bestSeller:false, image:"images/WEDANG JAHE.jpeg",   desc:"Minuman tradisional penghangat tubuh dari jahe bakar.", price:25000 },
+            { name:"Beer Pletok",  category:"Beverage", bestSeller:false, image:"images/BEER PLETOK.jpeg",   desc:"Minuman rempah non-alkohol khas Betawi.", price:45000 },
+            { name:"Kopi Bali",    category:"Beverage", bestSeller:true,  image:"images/KOPI BALI.jpeg",     desc:"Kopi tubruk dari biji kopi Bali premium.", price:30000 },
+            { name:"Equil Water",  category:"Beverage", bestSeller:false, image:"images/EQUIL Water.jpeg",   desc:"Air mineral alami berkarbonasi premium.", price:50000 }
+        ],
+        dessert: [
+            { name:"Klepon",         category:"Dessert", bestSeller:true,  image:"images/KLEPON.jpeg",         desc:"Jajanan pasar kenyal bertabur kelapa parut segar.", price:30000 },
+            { name:"Puding Gula Aren",category:"Dessert",bestSeller:false, image:"images/PUDING GULA AREN.jpeg",desc:"Makanan penutup lembut dengan manisnya gula aren.", price:45000 },
+            { name:"Es Cendol",      category:"Dessert", bestSeller:true,  image:"images/ES CENDOL.jpeg",      desc:"Paduan kenyalnya cendol pandan dan manisnya gula aren.", price:45000 }
+        ]
+    };
+}
+
 function getAllAdminItems() {
     return [
-        ...adminMenuData.makanan.map(i=>({...i,_cat:"makanan"})),
-        ...adminMenuData.minuman.map(i=>({...i,_cat:"minuman"})),
-        ...adminMenuData.dessert.map(i=>({...i,_cat:"dessert"}))
+        ...adminMenuData.makanan.map(i=>({...i, _cat:"makanan"})),
+        ...adminMenuData.minuman.map(i=>({...i, _cat:"minuman"})),
+        ...adminMenuData.dessert.map(i=>({...i, _cat:"dessert"}))
     ];
 }
 
@@ -598,7 +636,7 @@ function renderAdminMenu() {
 }
 
 function openAddMenu() {
-    editingMenuIndex = null;
+    editingMenuItem = null;
     document.getElementById("menuModalTitle").textContent = "➕ Tambah Menu";
     document.getElementById("fName").value = "";
     document.getElementById("fPrice").value = "";
@@ -611,8 +649,8 @@ function openAddMenu() {
 }
 
 function openEditMenu(globalIndex) {
-    editingMenuIndex = globalIndex;
     const item = getAllAdminItems()[globalIndex];
+    editingMenuItem = { ...item, _cat: item._cat };
     document.getElementById("menuModalTitle").textContent = "✏️ Edit Menu";
     document.getElementById("fName").value   = item.name;
     document.getElementById("fPrice").value  = item.price;
@@ -626,55 +664,93 @@ function openEditMenu(globalIndex) {
 
 function closeMenuModal() {
     document.getElementById("menuModal").classList.remove("open");
+    editingMenuItem = null;
 }
 
-function saveMenuItem() {
+async function saveMenuItem() {
     const name   = document.getElementById("fName").value.trim();
     const price  = parseInt(document.getElementById("fPrice").value);
     const cat    = document.getElementById("fCategory").value;
-    const subcat = document.getElementById("fSubcat").value.trim() || cat;
+    const subcat = document.getElementById("fSubcat").value.trim() || (cat === "makanan" ? "Main Course" : (cat === "minuman" ? "Beverage" : "Dessert"));
     const desc   = document.getElementById("fDesc").value.trim();
     const image  = document.getElementById("fImage").value.trim();
     const best   = document.getElementById("fBestSeller").checked;
     if (!name || !price) { alert("Nama dan harga wajib diisi!"); return; }
     const newItem = { name, price, category: subcat, desc, image, bestSeller: best };
-    if (editingMenuIndex === null) {
+    
+    if (editingMenuItem === null) {
+        // Tambah baru
         adminMenuData[cat].push(newItem);
     } else {
-        const all = getAllAdminItems();
-        const old = all[editingMenuIndex];
-        const oldCat = old._cat;
-        const idx = adminMenuData[oldCat].findIndex(i => i.name === old.name);
+        // Hapus item lama
+        const oldCat = editingMenuItem._cat;
+        const idx = adminMenuData[oldCat].findIndex(i => i.name === editingMenuItem.name);
         if (idx !== -1) adminMenuData[oldCat].splice(idx, 1);
+        // Tambah ke kategori baru
         adminMenuData[cat].push(newItem);
     }
     closeMenuModal();
     renderAdminMenu();
-    syncMenuToSheets();
+    await syncMenuToSheets();
 }
 
-function deleteMenuItem(globalIndex) {
+async function deleteMenuItem(globalIndex) {
     const item = getAllAdminItems()[globalIndex];
     if (!confirm(`Hapus "${item.name}"?`)) return;
     const arr = adminMenuData[item._cat];
     const idx = arr.findIndex(i => i.name === item.name);
     if (idx !== -1) arr.splice(idx, 1);
     renderAdminMenu();
-    syncMenuToSheets();
+    await syncMenuToSheets();
 }
 
 async function syncMenuToSheets() {
-    if (!SCRIPT_URL) return;
+    if (!SCRIPT_URL) {
+        alert("URL Apps Script belum diset. Menu hanya tersimpan lokal.");
+        return;
+    }
     try {
         const allItems = getAllAdminItems().map(i => ({
-            category: i._cat, name: i.name, price: i.price,
-            desc: i.desc, image: i.image, bestSeller: i.bestSeller
+            category: i._cat,
+            name: i.name,
+            price: i.price,
+            desc: i.desc,
+            image: i.image,
+            bestSeller: i.bestSeller,
+            subcategory: i.category
         }));
-        await fetch(SCRIPT_URL, {
+        const res = await fetch(SCRIPT_URL, {
             method:"POST", headers:{"Content-Type":"text/plain"},
             body: JSON.stringify({ action:"updateMenu", menu: allItems })
         });
-    } catch(e) { console.warn("Gagal sync menu:", e); }
+        const result = await res.json();
+        if (result.status === "ok") {
+            showToast("✅ Menu berhasil disimpan ke Google Sheets!");
+        } else {
+            showToast("⚠️ Gagal menyimpan menu ke Sheets", "error");
+        }
+    } catch(e) {
+        console.warn("Gagal sync menu:", e);
+        showToast("❌ Gagal terhubung ke server", "error");
+    }
+}
+
+function showToast(msg, type="success") {
+    const toast = document.createElement("div");
+    toast.textContent = msg;
+    toast.style.position = "fixed";
+    toast.style.bottom = "80px";
+    toast.style.left = "50%";
+    toast.style.transform = "translateX(-50%)";
+    toast.style.backgroundColor = type === "error" ? "#ef4444" : "#10b981";
+    toast.style.color = "white";
+    toast.style.padding = "10px 20px";
+    toast.style.borderRadius = "50px";
+    toast.style.zIndex = "9999";
+    toast.style.fontSize = "14px";
+    toast.style.fontWeight = "bold";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
 }
 
 // ==================== SETUP ====================
@@ -684,9 +760,12 @@ function saveSetup() {
     localStorage.setItem("hn_admin_url", url);
     document.getElementById("setupStatus").innerHTML =
         '<span style="color:var(--green)">✅ URL berhasil disimpan! Memuat ulang data...</span>';
-    setTimeout(() => {
+    setTimeout(async () => {
         document.getElementById("setupStatus").textContent = "";
-        loadOrders(); loadStats();
+        await loadMenuFromSheet();
+        loadOrders();
+        loadStats();
+        renderAdminMenu();
     }, 1500);
 }
 
