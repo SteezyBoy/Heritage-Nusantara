@@ -1,8 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi dengan integrasi Google Sheets + Out of Stock
+// Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
 
-// Ganti dengan URL Apps Script Anda setelah deploy
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_fLsGO9xEZNasT6Yzm0b3oOuz8e-fZrnAoYuKMHSeVzlbeZ5E_U19Ux8pM6-qa27l8A/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
 
 let currentCategory = "all";
 let currentItem = null;
@@ -89,8 +88,10 @@ function formatPrice(price) {
 function getAllItems() {
     return [...menuData.makanan, ...menuData.dessert, ...menuData.minuman];
 }
-function showSuccessPopup() {
+function showSuccessPopup(message = "Successfully added to cart!") {
     const popup = document.getElementById("success-popup");
+    const msgElem = popup.querySelector("p");
+    if (msgElem) msgElem.textContent = message;
     popup.classList.add("show");
     setTimeout(() => popup.classList.remove("show"), 2000);
 }
@@ -139,11 +140,12 @@ function renderMenu() {
         const isFav = favorites.includes(item.name);
         const isOutOfStock = item.outOfStock === true;
         const card = document.createElement("div");
-        card.className = "menu-card" + (isOutOfStock ? " out-of-stock" : "");
+        card.className = "menu-card";
+        if (isOutOfStock) card.classList.add("out-of-stock");
         card.style.animationDelay = `${index * 0.06}s`;
         card.innerHTML = `
             <div class="image-wrapper">
-                ${item.bestSeller && !isOutOfStock ? `<div class="best-seller">🔥 BEST SELLER</div>` : ''}
+                ${item.bestSeller ? `<div class="best-seller">🔥 BEST SELLER</div>` : ''}
                 ${isOutOfStock ? `<div class="out-of-stock-badge">⛔ HABIS</div>` : ''}
                 <button class="card-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event,'${safeName}')" title="Favorite">
                     ${isFav ? '❤️' : '🤍'}
@@ -153,15 +155,12 @@ function renderMenu() {
             </div>
             <div class="menu-info">
                 <div class="food-tag">${item.category}</div>
-                <h3>${item.name} ${isOutOfStock ? '<span style="color:red; font-size:12px;">(Habis)</span>' : ''}</h3>
+                <h3>${item.name}</h3>
                 <div class="price">${formatPrice(item.price)}</div>
                 <p>${item.desc.substring(0, 80)}${item.desc.length > 80 ? '...' : ''}</p>
                 <div class="card-actions">
                     <button class="detail-btn" onclick="openModalByName('${safeName}')">View Details</button>
-                    ${isOutOfStock ? 
-                        '<button class="add-to-cart-btn disabled" disabled style="background:#ccc; cursor:not-allowed;">⛔ Habis</button>' : 
-                        `<button class="add-to-cart-btn" onclick="openQuickAddPopup('${safeName}')">+ Add To Cart</button>`
-                    }
+                    <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" ${isOutOfStock ? 'disabled' : `onclick="openQuickAddPopup('${safeName}')"`}>${isOutOfStock ? 'Habis' : '+ Add To Cart'}</button>
                 </div>
             </div>`;
         menuList.appendChild(card);
@@ -240,14 +239,11 @@ function openFavModal() {
             <div class="fav-item">
                 <img src="${item.image}" alt="${item.name}" loading="lazy">
                 <div class="fav-item-info">
-                    <strong>${item.name} ${item.outOfStock ? '(Habis)' : ''}</strong>
+                    <strong>${item.name}</strong>
                     <span>${formatPrice(item.price)}</span>
                 </div>
                 <div class="fav-item-actions">
-                    ${item.outOfStock ? 
-                        '<button class="fav-add-btn disabled" disabled style="background:#ccc;">⛔ Habis</button>' : 
-                        `<button class="fav-add-btn" onclick="closeFavModal(); openQuickAddPopup('${safeName}')">+ Cart</button>`
-                    }
+                    <button class="fav-add-btn" onclick="closeFavModal(); openQuickAddPopup('${safeName}')">+ Cart</button>
                     <button class="fav-remove-btn" onclick="removeFav('${safeName}')">🗑</button>
                 </div>
             </div>`;
@@ -269,6 +265,7 @@ function openModalByName(itemName) {
     const items = getAllItems();
     currentItem = items.find(i => i.name === itemName);
     if (!currentItem) return;
+    const isOutOfStock = currentItem.outOfStock === true;
     document.getElementById("modal-qty").innerText = "1";
     document.getElementById("modal-notes").value = "";
     document.getElementById("modal-image").src = currentItem.image;
@@ -277,16 +274,15 @@ function openModalByName(itemName) {
     document.getElementById("modal-price").innerText = formatPrice(currentItem.price);
     document.getElementById("modal-desc").innerText = currentItem.desc;
     updateModalFavBtn();
-    // Jika out of stock, disable tombol add dan quantity
-    const isOutOfStock = currentItem.outOfStock === true;
-    const qtyControls = document.querySelectorAll(".qty-control");
     const addBtn = document.querySelector(".modal-add-btn");
     if (isOutOfStock) {
-        qtyControls.forEach(btn => btn.disabled = true);
-        if (addBtn) { addBtn.disabled = true; addBtn.style.background = "#ccc"; addBtn.style.cursor = "not-allowed"; addBtn.textContent = "⛔ Habis"; }
+        addBtn.disabled = true;
+        addBtn.textContent = "⛔ Habis";
+        addBtn.style.background = "#ccc";
     } else {
-        qtyControls.forEach(btn => btn.disabled = false);
-        if (addBtn) { addBtn.disabled = false; addBtn.style.background = "linear-gradient(105deg, #ff7b00, #ff5400)"; addBtn.textContent = "Add To Cart"; }
+        addBtn.disabled = false;
+        addBtn.textContent = "Add To Cart";
+        addBtn.style.background = "linear-gradient(105deg, var(--accent2), var(--accent))";
     }
     const scrollable = document.querySelector(".modal-scrollable");
     if (scrollable) scrollable.scrollTop = 0;
@@ -304,7 +300,10 @@ function decreaseModalQty() {
 }
 function addToCartFromModal() {
     if (!currentItem) return;
-    if (currentItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); return; }
+    if (currentItem.outOfStock) {
+        showShareToast("Item sedang habis!");
+        return;
+    }
     const qty = parseInt(document.getElementById("modal-qty").innerText);
     const notes = document.getElementById("modal-notes").value.trim();
     addItemToCart(currentItem, qty, notes);
@@ -317,7 +316,10 @@ function openQuickAddPopup(itemName) {
     const items = getAllItems();
     quickAddItem = items.find(i => i.name === itemName);
     if (!quickAddItem) return;
-    if (quickAddItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); return; }
+    if (quickAddItem.outOfStock) {
+        showShareToast("Item sedang habis!");
+        return;
+    }
     quickQty = 1;
     document.getElementById("quickQty").innerText = quickQty;
     document.getElementById("quickAddItemName").innerText = quickAddItem.name;
@@ -329,7 +331,6 @@ function increaseQuickQty() { quickQty++; document.getElementById("quickQty").in
 function decreaseQuickQty() { if (quickQty > 1) { quickQty--; document.getElementById("quickQty").innerText = quickQty; } }
 function confirmQuickAdd() {
     if (!quickAddItem) return;
-    if (quickAddItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); closeQuickAddModal(); return; }
     const notes = document.getElementById("quickNotes").value.trim();
     addItemToCart(quickAddItem, quickQty, notes);
     closeQuickAddModal();
@@ -338,7 +339,6 @@ function confirmQuickAdd() {
 
 // ==================== CART CORE ====================
 function addItemToCart(item, qty, notes) {
-    if (item.outOfStock) return;
     const existing = cart.find(c => c.name === item.name);
     if (existing) {
         existing.quantity += qty;
@@ -415,6 +415,7 @@ function openCart() {
     document.getElementById("cart-screen").style.display = "block";
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "none";
+    document.getElementById("payment-confirm-screen").style.display = "none";
 }
 function closeCart() { document.getElementById("cartModal").style.display = "none"; }
 function openOrderSummary() {
@@ -442,8 +443,11 @@ function openOrderSummary() {
     document.getElementById("order-summary-screen").style.display = "block";
 }
 
-// ==================== KIRIM PESANAN KE GOOGLE SHEETS ====================
-async function openPayment() {
+// ==================== KIRIM PESANAN KE GOOGLE SHEETS (setelah konfirmasi bayar) ====================
+let pendingOrderData = null;
+
+function openPayment() {
+    if (cart.length === 0) { showShareToast("Cart kosong!"); return; }
     const tableNum = document.getElementById("tableNumber").value.trim() || "—";
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const now = new Date();
@@ -455,43 +459,94 @@ async function openPayment() {
 
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("payment-screen").style.display = "block";
+    document.getElementById("payment-confirm-screen").style.display = "none";
 
-    if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
-        try {
-            const orderData = {
-                action:      "newOrder",
-                tableNumber: tableNum,
-                items: cart.map(item => ({
-                    name:  item.name,
-                    qty:   item.quantity,
-                    price: item.price,
-                    notes: item.notes || ""
-                }))
-            };
-            const res = await fetch(APPS_SCRIPT_URL, {
-                method:  "POST",
-                headers: { "Content-Type": "text/plain" },
-                body:    JSON.stringify(orderData)
-            });
-            const result = await res.json();
-            if (result.status === "ok") {
-                document.getElementById("payOrderId").innerHTML = `✅ Order ID: <strong>${result.orderId}</strong>`;
-                // Kosongkan cart setelah berhasil
-                cart = [];
-                updateCartBadge();
-                // Tampilkan notifikasi sukses
-                showShareToast("✅ Pesanan berhasil dikirim!");
-            } else {
-                document.getElementById("payOrderId").innerHTML = `⚠️ Gagal menyimpan order: ${result.message || 'unknown error'}`;
-            }
-        } catch (err) {
-            console.error("Gagal kirim ke Sheets:", err);
-            document.getElementById("payOrderId").innerHTML = `⚠️ Pesanan tersimpan lokal (offline) - Error: ${err.message}`;
+    // Simpan data pesanan untuk dikirim setelah konfirmasi
+    pendingOrderData = {
+        tableNumber: tableNum,
+        items: cart.map(item => ({
+            name: item.name,
+            qty: item.quantity,
+            price: item.price,
+            notes: item.notes || ""
+        })),
+        total: total,
+        timestamp: now
+    };
+}
+
+function confirmPayment() {
+    if (!pendingOrderData) return;
+
+    // Tampilkan loading pada tombol
+    const confirmBtn = document.querySelector("#payment-screen .checkout-btn");
+    const originalText = confirmBtn.innerText;
+    confirmBtn.innerText = "⏳ Memproses...";
+    confirmBtn.disabled = true;
+
+    // Pindah ke layar konfirmasi loading
+    document.getElementById("payment-screen").style.display = "none";
+    document.getElementById("payment-confirm-screen").style.display = "block";
+    document.getElementById("confirm-status").innerHTML = "⏳ Mengirim pesanan ke dapur...";
+
+    sendOrderToServer().then(success => {
+        if (success) {
+            document.getElementById("confirm-status").innerHTML = "✅ Pesanan berhasil! Admin akan segera memproses.";
+            // Kosongkan cart
+            cart = [];
+            updateCartBadge();
+            // Tampilkan popup sukses
+            showSuccessPopup("Pembayaran berhasil dikonfirmasi! Pesanan Anda telah diterima.");
+            // Setelah 3 detik tutup modal cart
+            setTimeout(() => {
+                closeCart();
+                // Reset
+                document.getElementById("payment-confirm-screen").style.display = "none";
+                document.getElementById("payment-screen").style.display = "block";
+                confirmBtn.innerText = originalText;
+                confirmBtn.disabled = false;
+                pendingOrderData = null;
+            }, 3000);
+        } else {
+            document.getElementById("confirm-status").innerHTML = "❌ Gagal mengirim pesanan. Coba lagi.";
+            setTimeout(() => {
+                document.getElementById("payment-confirm-screen").style.display = "none";
+                document.getElementById("payment-screen").style.display = "block";
+                confirmBtn.innerText = originalText;
+                confirmBtn.disabled = false;
+            }, 2000);
         }
-    } else {
-        document.getElementById("payOrderId").innerHTML = `⚠️ URL Apps Script belum diset. Hubungi admin.`;
+    });
+}
+
+async function sendOrderToServer() {
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+        console.warn("URL Apps Script belum diset");
+        return false;
+    }
+    try {
+        const orderData = {
+            action: "newOrder",
+            tableNumber: pendingOrderData.tableNumber,
+            items: pendingOrderData.items
+        };
+        const res = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify(orderData)
+        });
+        const result = await res.json();
+        if (result.status === "ok") {
+            return true;
+        } else {
+            return false;
+        }
+    } catch (err) {
+        console.error("Gagal kirim order:", err);
+        return false;
     }
 }
+
 function backToCart() {
     document.getElementById("order-summary-screen").style.display = "none";
     document.getElementById("cart-screen").style.display = "block";
