@@ -829,3 +829,4 @@ footer h3 { color: var(--accent); margin-bottom: 8px; }
 .bill-fab:hover svg {
     stroke: var(--accent);
 }
+body { border: 10px solid red !important; }
