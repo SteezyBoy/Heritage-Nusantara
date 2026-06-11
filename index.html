@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Heritage Nusantara - Premium Authentic Indonesian Cuisine">
+    <title>Heritage Nusantara | Premium Dining</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="premium-header">
+            <div class="header-content">
+                <div class="brand-logo">
+                    <h1>HERITAGE</h1>
+                    <span class="tagline">Authentic & Premium Cuisine</span>
+                </div>
+                <div class="search-wrapper">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Temukan hidangan favorit Anda..." autocomplete="off">
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="section-title">
+                <h2>Menu Signature</h2>
+                <div class="title-underline"></div>
+            </div>
+
+            <div id="menu-list" class="menu-grid">
+                <div class="skeleton-card">
+                    <div class="skeleton-img"></div>
+                    <div class="skeleton-text title"></div>
+                    <div class="skeleton-text desc"></div>
+                    <div class="skeleton-text price"></div>
+                    <div class="skeleton-btn"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-img"></div>
+                    <div class="skeleton-text title"></div>
+                    <div class="skeleton-text desc"></div>
+                    <div class="skeleton-text price"></div>
+                    <div class="skeleton-btn"></div>
+                </div>
+            </div>
+            
+            <div id="empty-state" class="empty-state hidden">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h3>Menu Tidak Ditemukan</h3>
+                <p>Silakan coba kata kunci pencarian yang lain.</p>
+            </div>
+        </main>
+
+        <button id="floating-cart" class="floating-cart" onclick="cartManager.openModal()" aria-label="Buka Keranjang">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            <span id="cart-badge" class="cart-badge">0</span>
+        </button>
+
+        <div id="cart-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Keranjang Pesanan</h2>
+                    <button class="close-btn" onclick="cartManager.closeModal()">&times;</button>
+                </div>
+                <div id="cart-items" class="modal-body">
+                    <div class="empty-cart-msg">Keranjang Anda masih kosong.</div>
+                </div>
+                <div class="modal-footer">
+                    <div class="total-wrapper">
+                        <span>Total:</span>
+                        <span id="cart-total" class="total-price">Rp 0</span>
+                    </div>
+                    <button id="checkout-btn" class="checkout-btn disabled" onclick="cartManager.checkout()">
+                        Proses Pembayaran
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
