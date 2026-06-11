@@ -1,5 +1,5 @@
 // ==================== KONFIGURASI ====================
-const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE"; // Ganti dengan URL dari Apps Script
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_fLsGO9xEZNasT6Yzm0b3oOuz8e-fZrnAoYuKMHSeVzlbeZ5E_U19Ux8pM6-qa27l8A/exec"; // Ganti dengan URL dari Apps Script
 
 let currentCategory = "all";
 let currentItem = null;
