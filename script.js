@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
 // Versi dengan Pantauan Bill, status per item, alur pemesanan baru
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzVD4bau8icPv8jRMC98FLLwYpONLZ86aLwkV1PF16tZEmkg4UsZBxXaDYalezwHA1Dw/exec"; // GANTI DENGAN URL ANDA
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4DRQ8iJUYXCjlohppAN436BJroNDa7Cq3iYoRSglpYxRDnd8os32z7lGSlAmYRyuf2Q/exec"; // GANTI DENGAN URL ANDA
 
 let currentCategory = "all";
 let currentItem = null;
