@@ -328,9 +328,14 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
             <label>Path Gambar</label>
             <input type="text" id="fImage" placeholder="images/nama-file.jpeg">
         </div>
-        <label class="form-check">
-            <input type="checkbox" id="fBestSeller"> Best Seller 🔥
-        </label>
+        <div class="form-row">
+            <label class="form-check" style="flex:1;">
+                <input type="checkbox" id="fBestSeller"> Best Seller 🔥
+            </label>
+            <label class="form-check" style="flex:1;">
+                <input type="checkbox" id="fOutOfStock"> ⛔ Habis (Out of Stock)
+            </label>
+        </div>
         <div class="modal-btns">
             <button class="modal-cancel" onclick="closeMenuModal()">Batal</button>
             <button class="modal-save" onclick="saveMenuItem()">Simpan</button>
@@ -340,12 +345,10 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 
 <script>
 // ==================== KONFIGURASI ====================
-const ADMIN_USERS = { "admin": "heritage2026" };
 let SCRIPT_URL = localStorage.getItem("hn_admin_url") || "";
 let currentOrders = [];
 let currentFilter = "semua";
-let editingMenuIndex = null; // untuk edit global (tidak dipakai, kita pakai item langsung)
-let editingMenuItem = null;   // menyimpan item yang sedang diedit
+let editingMenuItem = null;
 let adminDark = localStorage.getItem("hn_admin_dark") === "true";
 let autoRefreshTimer = null;
 
@@ -385,12 +388,10 @@ async function showAdmin() {
     const now = new Date();
     document.getElementById("adminGreet").textContent =
         `Selamat ${now.getHours()<12?"Pagi":now.getHours()<17?"Siang":"Malam"}, Admin 👋`;
-    // Load data dari Sheets
     await loadMenuFromSheet();
     loadOrders();
     loadStats();
     renderAdminMenu();
-    // Auto-refresh pesanan setiap 30 detik
     autoRefreshTimer = setInterval(() => {
         loadOrders(true);
         loadStats();
@@ -523,7 +524,6 @@ async function loadStats() {
         document.getElementById("statTodayOrders").textContent  = s.todayOrders  || 0;
         document.getElementById("statTodayRevenue").textContent = s.todayRevenue ? fmt(s.todayRevenue) : "Rp 0";
 
-        // Top items
         const topHtml = (s.topItems || []).map((it,i) => `
             <div class="top-item">
                 <span class="top-item-name">${i+1}. ${it.name}</span>
@@ -542,7 +542,6 @@ async function loadStats() {
 // ==================== MENU MANAGER (TERINTEGRASI SHEETS) ====================
 async function loadMenuFromSheet() {
     if (!SCRIPT_URL) {
-        // Jika belum ada URL, pakai default
         setDefaultMenu();
         renderAdminMenu();
         return;
@@ -552,13 +551,12 @@ async function loadMenuFromSheet() {
         const data = await res.json();
         if (data.menu) {
             adminMenuData = data.menu;
-            // Pastikan setiap item memiliki field category (subkategori)
             for (let cat in adminMenuData) {
                 adminMenuData[cat] = adminMenuData[cat].map(item => ({
                     ...item,
                     price: Number(item.price),
                     bestSeller: item.bestSeller === true || item.bestSeller === "true",
-                    category: item.category || (cat === "makanan" ? "Main Course" : (cat === "minuman" ? "Beverage" : "Dessert"))
+                    outOfStock: item.outOfStock === true || item.outOfStock === "true"
                 }));
             }
         } else {
@@ -574,31 +572,18 @@ async function loadMenuFromSheet() {
 function setDefaultMenu() {
     adminMenuData = {
         makanan: [
-            { name:"Tahu Isi Goreng",    category:"Appetizer",   bestSeller:true,  image:"images/TAHU ISI GORENG.jpeg",    desc:"Tahu renyah yang digoreng keemasan, berisi sayuran segar pilihan.", price:35000 },
-            { name:"Lumpia Semarang",    category:"Appetizer",   bestSeller:false, image:"images/LUMPIA SEMARANG.jpeg",    desc:"Camilan legendaris khas Semarang dengan isian rebung manis gurih.", price:45000 },
-            { name:"Perkedel Kentang",   category:"Appetizer",   bestSeller:false, image:"images/PERKEDEL KENTANG.jpeg",   desc:"Perkedel kentang lembut dengan paduan bumbu rempah tradisional.", price:45000 },
-            { name:"Soto Ayam Lamongan", category:"Soup",        bestSeller:true,  image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah dengan suwiran ayam kampung.", price:40000 },
-            { name:"Soup Buntut",        category:"Soup",        bestSeller:true,  image:"images/SOP BUNTUT.jpeg",         desc:"Potongan buntut sapi premium yang dimasak perlahan.", price:70000 },
-            { name:"Soup Ikan Batam",    category:"Soup",        bestSeller:false, image:"images/SOUP IKAN BATAM.jpeg",    desc:"Sop ikan segar khas perairan Kepulauan Riau.", price:70000 },
-            { name:"Nasi Goreng Kampung",category:"Main Course", bestSeller:true,  image:"images/NASI GORENG KAMPUNG.jpeg",desc:"Nasi goreng beraroma terasi khas pedesaan.", price:75000 },
-            { name:"Ayam Bakar Taliwang",category:"Main Course", bestSeller:true,  image:"images/AYAM BAKAR TALIWANG.jpeg",desc:"Ayam kampung bakar bumbu pedas manis khas Lombok.", price:85000 },
-            { name:"Rendang Daging Sapi",category:"Main Course", bestSeller:true,  image:"images/RENDANG DAGING SAPI.jpeg",desc:"Mahakarya kuliner Minang. Daging sapi pilihan.", price:90000 }
+            { name:"Tahu Isi Goreng", category:"Appetizer", bestSeller:true, outOfStock:false, image:"images/TAHU ISI GORENG.jpeg", desc:"Tahu renyah yang digoreng keemasan.", price:35000 },
+            { name:"Lumpia Semarang", category:"Appetizer", bestSeller:false, outOfStock:false, image:"images/LUMPIA SEMARANG.jpeg", desc:"Camilan legendaris khas Semarang.", price:45000 },
+            { name:"Soto Ayam Lamongan", category:"Soup", bestSeller:true, outOfStock:false, image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah.", price:40000 },
+            { name:"Nasi Goreng Kampung", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/NASI GORENG KAMPUNG.jpeg", desc:"Nasi goreng beraroma terasi.", price:75000 },
+            { name:"Rendang Daging Sapi", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/RENDANG DAGING SAPI.jpeg", desc:"Mahakarya kuliner Minang.", price:90000 }
         ],
         minuman: [
-            { name:"Es Teh",       category:"Beverage", bestSeller:false, image:"images/ES TEH.jpeg",        desc:"Seduhan teh melati pilihan yang dihidangkan dingin.", price:25000 },
-            { name:"Es Kelapa Muda",category:"Beverage",bestSeller:true,  image:"images/ES KELAPA MUDA.jpeg",desc:"Air kelapa segar murni dengan serutan daging kelapa muda.", price:65000 },
-            { name:"Teh Rosella",  category:"Beverage", bestSeller:false, image:"images/TEH ROSELLA.jpeg",   desc:"Seduhan bunga rosella merah merona.", price:35000 },
-            { name:"Es Jeruk",     category:"Beverage", bestSeller:false, image:"images/ES JERUK.jpeg",      desc:"Perasan jeruk peras asli yang manis dan menyegarkan.", price:30000 },
-            { name:"Teh Tarik",    category:"Beverage", bestSeller:true,  image:"images/TEH TARIK.jpeg",     desc:"Paduan teh hitam pekat dan susu kental manis.", price:35000 },
-            { name:"Wedang Jahe",  category:"Beverage", bestSeller:false, image:"images/WEDANG JAHE.jpeg",   desc:"Minuman tradisional penghangat tubuh dari jahe bakar.", price:25000 },
-            { name:"Beer Pletok",  category:"Beverage", bestSeller:false, image:"images/BEER PLETOK.jpeg",   desc:"Minuman rempah non-alkohol khas Betawi.", price:45000 },
-            { name:"Kopi Bali",    category:"Beverage", bestSeller:true,  image:"images/KOPI BALI.jpeg",     desc:"Kopi tubruk dari biji kopi Bali premium.", price:30000 },
-            { name:"Equil Water",  category:"Beverage", bestSeller:false, image:"images/EQUIL Water.jpeg",   desc:"Air mineral alami berkarbonasi premium.", price:50000 }
+            { name:"Es Teh", category:"Beverage", bestSeller:false, outOfStock:false, image:"images/ES TEH.jpeg", desc:"Seduhan teh melati dingin.", price:25000 },
+            { name:"Kopi Bali", category:"Beverage", bestSeller:true, outOfStock:false, image:"images/KOPI BALI.jpeg", desc:"Kopi tubruk dari biji kopi Bali.", price:30000 }
         ],
         dessert: [
-            { name:"Klepon",         category:"Dessert", bestSeller:true,  image:"images/KLEPON.jpeg",         desc:"Jajanan pasar kenyal bertabur kelapa parut segar.", price:30000 },
-            { name:"Puding Gula Aren",category:"Dessert",bestSeller:false, image:"images/PUDING GULA AREN.jpeg",desc:"Makanan penutup lembut dengan manisnya gula aren.", price:45000 },
-            { name:"Es Cendol",      category:"Dessert", bestSeller:true,  image:"images/ES CENDOL.jpeg",      desc:"Paduan kenyalnya cendol pandan dan manisnya gula aren.", price:45000 }
+            { name:"Klepon", category:"Dessert", bestSeller:true, outOfStock:false, image:"images/KLEPON.jpeg", desc:"Jajanan pasar kenyal bertabur kelapa.", price:30000 }
         ]
     };
 }
@@ -624,7 +609,7 @@ function renderAdminMenu() {
             <img src="${item.image}" alt="${item.name}"
                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23f1f5f9%22 width=%2260%22 height=%2260%22/></svg>'">
             <div class="menu-item-info">
-                <strong>${item.name} ${item.bestSeller?"🔥":""}</strong>
+                <strong>${item.name} ${item.bestSeller?"🔥":""} ${item.outOfStock?"⛔ HABIS":""}</strong>
                 <span>${fmt(item.price)}</span>
                 <small>${item.category} • ${item._cat}</small>
             </div>
@@ -644,6 +629,7 @@ function openAddMenu() {
     document.getElementById("fImage").value = "";
     document.getElementById("fSubcat").value = "";
     document.getElementById("fBestSeller").checked = false;
+    document.getElementById("fOutOfStock").checked = false;
     document.getElementById("fCategory").value = "makanan";
     document.getElementById("menuModal").classList.add("open");
 }
@@ -658,6 +644,7 @@ function openEditMenu(globalIndex) {
     document.getElementById("fImage").value  = item.image;
     document.getElementById("fSubcat").value = item.category;
     document.getElementById("fBestSeller").checked = item.bestSeller;
+    document.getElementById("fOutOfStock").checked = item.outOfStock === true;
     document.getElementById("fCategory").value = item._cat;
     document.getElementById("menuModal").classList.add("open");
 }
@@ -675,18 +662,16 @@ async function saveMenuItem() {
     const desc   = document.getElementById("fDesc").value.trim();
     const image  = document.getElementById("fImage").value.trim();
     const best   = document.getElementById("fBestSeller").checked;
+    const outOfStock = document.getElementById("fOutOfStock").checked;
     if (!name || !price) { alert("Nama dan harga wajib diisi!"); return; }
-    const newItem = { name, price, category: subcat, desc, image, bestSeller: best };
+    const newItem = { name, price, category: subcat, desc, image, bestSeller: best, outOfStock };
     
     if (editingMenuItem === null) {
-        // Tambah baru
         adminMenuData[cat].push(newItem);
     } else {
-        // Hapus item lama
         const oldCat = editingMenuItem._cat;
         const idx = adminMenuData[oldCat].findIndex(i => i.name === editingMenuItem.name);
         if (idx !== -1) adminMenuData[oldCat].splice(idx, 1);
-        // Tambah ke kategori baru
         adminMenuData[cat].push(newItem);
     }
     closeMenuModal();
@@ -717,6 +702,7 @@ async function syncMenuToSheets() {
             desc: i.desc,
             image: i.image,
             bestSeller: i.bestSeller,
+            outOfStock: i.outOfStock,
             subcategory: i.category
         }));
         const res = await fetch(SCRIPT_URL, {
