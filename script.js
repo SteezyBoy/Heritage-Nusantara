@@ -2,7 +2,7 @@
 // Versi terintegrasi dengan Google Sheets (menu & order)
 
 // Ganti dengan URL Apps Script Anda setelah deploy
-const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_fLsGO9xEZNasT6Yzm0b3oOuz8e-fZrnAoYuKMHSeVzlbeZ5E_U19Ux8pM6-qa27l8A/exec";
 
 let currentCategory = "all";
 let currentItem = null;
