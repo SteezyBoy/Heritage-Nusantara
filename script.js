@@ -1,628 +1,831 @@
-// ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi terintegrasi dengan Google Sheets (menu & order) + konfirmasi pembayaran
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTGELLcJersbyefdBk3ck8EnnXBF3OcRAUELjsYcEM5Vf3kjR8hxfFqXy3sGpskPLT_Q/exec";
-
-let currentCategory = "all";
-let currentItem = null;
-let cart = [];
-let currentSearchKeyword = "";
-let quickAddItem = null;
-let quickQty = 1;
-let isDarkMode = localStorage.getItem("hn_darkmode") === "true";
-let menuData = { makanan: [], minuman: [], dessert: [] };
-
-// ==================== INIT ====================
-document.addEventListener("DOMContentLoaded", async () => {
-    applyDarkMode();
-    showSkeletonLoading();
-    await loadMenuFromSheet();
-    renderMenu();
-});
-
-// ==================== AMBIL MENU DARI GOOGLE SHEETS ====================
-async function loadMenuFromSheet() {
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
-        console.warn("URL Apps Script belum diset, pakai menu default");
-        setDefaultMenu();
-        return;
-    }
-    try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=getMenu`);
-        const data = await res.json();
-        if (data.menu) {
-            menuData = data.menu;
-            for (let cat in menuData) {
-                menuData[cat] = menuData[cat].map(item => ({
-                    ...item,
-                    price: Number(item.price),
-                    bestSeller: item.bestSeller === true || item.bestSeller === "true",
-                    outOfStock: item.outOfStock === true || item.outOfStock === "true"
-                }));
-            }
-        } else {
-            setDefaultMenu();
-        }
-    } catch (err) {
-        console.error("Gagal mengambil menu dari Sheets, pakai default:", err);
-        setDefaultMenu();
-    }
+/* ==================== CSS VARIABLES (Light & Dark) ==================== */
+:root {
+    --bg: #f4f7fb;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: #f1f5f9;
+    --border2: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --accent: #ff5400;
+    --accent2: #ff7b00;
+    --green: #10b981;
+    --green2: #059669;
+    --tag-bg: #dcfce7;
+    --tag-color: #15803d;
+    --skeleton: #e2e8f0;
+    --skeleton-shine: #f8fafc;
+    --shadow-sm: 0 5px 15px rgba(0,0,0,0.06);
+    --shadow-md: 0 10px 30px rgba(0,0,0,0.08);
+    --shadow-lg: 0 15px 40px rgba(0,0,0,0.12);
+    --shadow-accent: 0 10px 25px rgba(255,84,0,0.4);
+    --header-gradient: linear-gradient(135deg, #ff7b00, #ff5400);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-function setDefaultMenu() {
-    menuData = {
-        makanan: [
-            { name:"Tahu Isi Goreng", category:"Appetizer", bestSeller:true, outOfStock:false, image:"images/TAHU ISI GORENG.jpeg", desc:"Tahu renyah yang digoreng keemasan.", price:35000 },
-            { name:"Lumpia Semarang", category:"Appetizer", bestSeller:false, outOfStock:false, image:"images/LUMPIA SEMARANG.jpeg", desc:"Camilan legendaris khas Semarang.", price:45000 },
-            { name:"Soto Ayam Lamongan", category:"Soup", bestSeller:true, outOfStock:false, image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah.", price:40000 },
-            { name:"Nasi Goreng Kampung", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/NASI GORENG KAMPUNG.jpeg", desc:"Nasi goreng beraroma terasi.", price:75000 },
-            { name:"Rendang Daging Sapi", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/RENDANG DAGING SAPI.jpeg", desc:"Mahakarya kuliner Minang.", price:90000 }
-        ],
-        minuman: [
-            { name:"Es Teh", category:"Beverage", bestSeller:false, outOfStock:false, image:"images/ES TEH.jpeg", desc:"Seduhan teh melati dingin.", price:25000 },
-            { name:"Kopi Bali", category:"Beverage", bestSeller:true, outOfStock:false, image:"images/KOPI BALI.jpeg", desc:"Kopi tubruk dari biji kopi Bali.", price:30000 }
-        ],
-        dessert: [
-            { name:"Klepon", category:"Dessert", bestSeller:true, outOfStock:false, image:"images/KLEPON.jpeg", desc:"Jajanan pasar kenyal bertabur kelapa.", price:30000 }
-        ]
-    };
+[data-theme="dark"] {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #0f172a;
+    --border: #1e293b;
+    --border2: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-light: #64748b;
+    --tag-bg: #064e3b;
+    --tag-color: #34d399;
+    --skeleton: #1e293b;
+    --skeleton-shine: #334155;
+    --shadow-sm: 0 5px 15px rgba(0,0,0,0.3);
+    --shadow-md: 0 10px 30px rgba(0,0,0,0.4);
+    --shadow-lg: 0 15px 40px rgba(0,0,0,0.5);
 }
 
-// ==================== DARK MODE ====================
-function toggleDarkMode() {
-    isDarkMode = !isDarkMode;
-    localStorage.setItem("hn_darkmode", isDarkMode);
-    applyDarkMode();
-}
-function applyDarkMode() {
-    document.documentElement.setAttribute("data-theme", isDarkMode ? "dark" : "light");
-    const icon = document.getElementById("darkmodeIcon");
-    if (icon) icon.textContent = isDarkMode ? "☀️" : "🌙";
+/* ==================== BASE ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
 }
 
-// ==================== HELPERS ====================
-function formatPrice(price) {
-    return "Rp " + price.toLocaleString("id-ID");
-}
-function getAllItems() {
-    return [...menuData.makanan, ...menuData.dessert, ...menuData.minuman];
-}
-function showSuccessPopup(message = "Successfully added to cart!") {
-    const popup = document.getElementById("success-popup");
-    const msgElem = popup.querySelector("p");
-    if (msgElem) msgElem.textContent = message;
-    popup.classList.add("show");
-    setTimeout(() => popup.classList.remove("show"), 2000);
-}
-function showShareToast(msg) {
-    const toast = document.getElementById("shareToast");
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2500);
+body {
+    background: var(--bg);
+    min-height: 100vh;
+    transition: background var(--transition), color var(--transition);
 }
 
-// ==================== SKELETON ====================
-function showSkeletonLoading() {
-    const menuList = document.getElementById("menu-list");
-    if (!menuList) return;
-    menuList.innerHTML = "";
-    for (let i = 0; i < 4; i++) {
-        menuList.innerHTML += `<div class="skeleton-card"><div class="skeleton-img skeleton-pulse"></div><div class="skeleton-body"><div class="skeleton-tag skeleton-pulse"></div><div class="skeleton-title skeleton-pulse"></div><div class="skeleton-price skeleton-pulse"></div><div class="skeleton-desc skeleton-pulse"></div><div class="skeleton-btns"><div class="skeleton-btn skeleton-pulse"></div><div class="skeleton-btn skeleton-pulse"></div></div></div></div>`;
-    }
+.app {
+    width: 100%;
+    max-width: 500px;
+    margin: auto;
+    min-height: 100vh;
+    padding-bottom: 100px;
+    position: relative;
+    z-index: 1;
 }
 
-// ==================== RENDER MENU ====================
-function getFilteredAndSortedItems() {
-    let items = currentCategory === "all" ? getAllItems() : [...menuData[currentCategory]];
-    if (currentSearchKeyword.trim() !== "") {
-        items = items.filter(item => item.name.toLowerCase().includes(currentSearchKeyword.toLowerCase()));
-    }
-    const sortValue = document.getElementById("sortMenu")?.value;
-    if (sortValue === "az") items.sort((a, b) => a.name.localeCompare(b.name));
-    else if (sortValue === "za") items.sort((a, b) => b.name.localeCompare(a.name));
-    else if (sortValue === "low") items.sort((a, b) => a.price - b.price);
-    else if (sortValue === "high") items.sort((a, b) => b.price - a.price);
-    return items;
+/* ==================== HEADER ==================== */
+header {
+    background: var(--header-gradient);
+    color: white;
+    text-align: center;
+    padding: 40px 20px 70px;
+    border-radius: 0 0 35px 35px;
+    box-shadow: 0 15px 40px rgba(255,84,0,.25);
+    position: relative;
+    z-index: 2;
 }
 
-function renderMenu() {
-    const items = getFilteredAndSortedItems();
-    const menuList = document.getElementById("menu-list");
-    if (!menuList) return;
-    menuList.innerHTML = "";
-    if (items.length === 0) {
-        showEmptyState(currentSearchKeyword || "this category");
-        return;
-    }
-    items.forEach((item, index) => {
-        const safeName = item.name.replace(/'/g, "\\'");
-        const isFav = favorites.includes(item.name);
-        const isOutOfStock = item.outOfStock === true;
-        const card = document.createElement("div");
-        card.className = "menu-card";
-        if (isOutOfStock) card.classList.add("out-of-stock");
-        card.style.animationDelay = `${index * 0.06}s`;
-        card.innerHTML = `
-            <div class="image-wrapper">
-                ${item.bestSeller ? `<div class="best-seller">🔥 BEST SELLER</div>` : ''}
-                ${isOutOfStock ? `<div class="out-of-stock-badge">⛔ HABIS</div>` : ''}
-                <button class="card-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event,'${safeName}')" title="Favorite">
-                    ${isFav ? '❤️' : '🤍'}
-                </button>
-                <img src="${item.image}" alt="${item.name}" loading="lazy" class="menu-img"
-                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22240%22><rect fill=%22%23f1f5f9%22 width=%22400%22 height=%22240%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2240%22>🍽️</text></svg>'">
-            </div>
-            <div class="menu-info">
-                <div class="food-tag">${item.category}</div>
-                <h3>${item.name}</h3>
-                <div class="price">${formatPrice(item.price)}</div>
-                <p>${item.desc.substring(0, 80)}${item.desc.length > 80 ? '...' : ''}</p>
-                <div class="card-actions">
-                    <button class="detail-btn" onclick="openModalByName('${safeName}')">View Details</button>
-                    <button class="add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}" ${isOutOfStock ? 'disabled' : `onclick="openQuickAddPopup('${safeName}')"`}>${isOutOfStock ? 'Habis' : '+ Add To Cart'}</button>
-                </div>
-            </div>`;
-        menuList.appendChild(card);
-    });
+.restaurant-badge {
+    display: inline-block;
+    background: rgba(255,255,255,.18);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 15px;
 }
 
-function showEmptyState(keyword) {
-    const menuList = document.getElementById("menu-list");
-    menuList.innerHTML = `
-    <div class="empty-state">
-        <div class="empty-state-icon">🍽️</div>
-        <h3>No menu found</h3>
-        <p>No results for "<strong>${keyword}</strong>"</p>
-        <button class="empty-state-btn" onclick="clearSearch()">Clear Search</button>
-    </div>`;
-}
-function clearSearch() {
-    document.getElementById("searchInput").value = "";
-    currentSearchKeyword = "";
-    renderMenu();
-}
-function searchMenu() { currentSearchKeyword = document.getElementById("searchInput").value; renderMenu(); }
-function sortMenu() { renderMenu(); }
-function changeCategory(btn, category) {
-    document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentCategory = category;
-    currentSearchKeyword = "";
-    document.getElementById("searchInput").value = "";
-    showSkeletonLoading();
-    setTimeout(() => renderMenu(), 400);
+.logo-circle {
+    width: 80px; height: 80px;
+    margin: auto; margin-bottom: 15px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: flex; justify-content: center; align-items: center;
+    font-size: 38px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0,0,0,.15);
 }
 
-// ==================== FAVORITES ====================
-function toggleFav(event, itemName) {
-    event.stopPropagation();
-    const idx = favorites.indexOf(itemName);
-    if (idx === -1) favorites.push(itemName);
-    else favorites.splice(idx, 1);
-    localStorage.setItem("hn_favorites", JSON.stringify(favorites));
-    renderMenu();
-    if (currentItem && currentItem.name === itemName) updateModalFavBtn();
-}
-function toggleFavFromModal() {
-    if (!currentItem) return;
-    const idx = favorites.indexOf(currentItem.name);
-    if (idx === -1) favorites.push(currentItem.name);
-    else favorites.splice(idx, 1);
-    localStorage.setItem("hn_favorites", JSON.stringify(favorites));
-    updateModalFavBtn();
-    renderMenu();
-}
-function updateModalFavBtn() {
-    const btn = document.getElementById("modalFavBtn");
-    if (!btn || !currentItem) return;
-    const isFav = favorites.includes(currentItem.name);
-    btn.textContent = isFav ? "❤️" : "♡";
-    btn.classList.toggle("fav-active", isFav);
-}
-function openFavModal() {
-    const favList = document.getElementById("fav-list");
-    const favEmpty = document.getElementById("fav-empty");
-    favList.innerHTML = "";
-    if (favorites.length === 0) {
-        favEmpty.style.display = "block";
-        favList.style.display = "none";
-    } else {
-        favEmpty.style.display = "none";
-        favList.style.display = "block";
-        const allItems = getAllItems();
-        favorites.forEach(name => {
-            const item = allItems.find(i => i.name === name);
-            if (!item) return;
-            const safeName = item.name.replace(/'/g, "\\'");
-            favList.innerHTML += `
-            <div class="fav-item">
-                <img src="${item.image}" alt="${item.name}" loading="lazy">
-                <div class="fav-item-info">
-                    <strong>${item.name}</strong>
-                    <span>${formatPrice(item.price)}</span>
-                </div>
-                <div class="fav-item-actions">
-                    <button class="fav-add-btn" onclick="closeFavModal(); openQuickAddPopup('${safeName}')">+ Cart</button>
-                    <button class="fav-remove-btn" onclick="removeFav('${safeName}')">🗑</button>
-                </div>
-            </div>`;
-        });
-    }
-    document.getElementById("favModal").style.display = "flex";
-}
-function closeFavModal() { document.getElementById("favModal").style.display = "none"; }
-function removeFav(name) {
-    const idx = favorites.indexOf(name);
-    if (idx !== -1) favorites.splice(idx, 1);
-    localStorage.setItem("hn_favorites", JSON.stringify(favorites));
-    renderMenu();
-    openFavModal();
+.restaurant-name { font-size: 36px; font-weight: 800; margin-bottom: 10px; }
+.restaurant-tagline { font-size: 17px; opacity: .95; margin-bottom: 15px; }
+
+.header-info {
+    display: inline-block;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(10px);
+    padding: 10px 15px;
+    border-radius: 15px;
+    font-size: 13px;
 }
 
-// ==================== MODAL DETAIL ====================
-function openModalByName(itemName) {
-    const items = getAllItems();
-    currentItem = items.find(i => i.name === itemName);
-    if (!currentItem) return;
-    const isOutOfStock = currentItem.outOfStock === true;
-    document.getElementById("modal-qty").innerText = "1";
-    document.getElementById("modal-notes").value = "";
-    document.getElementById("modal-image").src = currentItem.image;
-    document.getElementById("modal-name").innerText = currentItem.name;
-    document.getElementById("modal-category").innerText = currentItem.category;
-    document.getElementById("modal-price").innerText = formatPrice(currentItem.price);
-    document.getElementById("modal-desc").innerText = currentItem.desc;
-    updateModalFavBtn();
-    const addBtn = document.querySelector(".modal-add-btn");
-    if (isOutOfStock) {
-        addBtn.disabled = true;
-        addBtn.textContent = "⛔ Habis";
-        addBtn.style.background = "#ccc";
-    } else {
-        addBtn.disabled = false;
-        addBtn.textContent = "Add To Cart";
-        addBtn.style.background = "linear-gradient(105deg, var(--accent2), var(--accent))";
-    }
-    const scrollable = document.querySelector(".modal-scrollable");
-    if (scrollable) scrollable.scrollTop = 0;
-    document.getElementById("modal").style.display = "flex";
+/* ==================== DARK MODE TOGGLE ==================== */
+.darkmode-toggle {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: var(--transition);
+    z-index: 10;
 }
-function closeModal() { document.getElementById("modal").style.display = "none"; currentItem = null; }
-function increaseModalQty() {
-    let s = document.getElementById("modal-qty");
-    s.innerText = parseInt(s.innerText) + 1;
-}
-function decreaseModalQty() {
-    let s = document.getElementById("modal-qty");
-    let v = parseInt(s.innerText);
-    if (v > 1) s.innerText = v - 1;
-}
-function addToCartFromModal() {
-    if (!currentItem) return;
-    if (currentItem.outOfStock) {
-        showShareToast("Item sedang habis!");
-        return;
-    }
-    const qty = parseInt(document.getElementById("modal-qty").innerText);
-    const notes = document.getElementById("modal-notes").value.trim();
-    addItemToCart(currentItem, qty, notes);
-    closeModal();
-    showSuccessPopup();
+.darkmode-toggle:hover {
+    background: rgba(255,255,255,0.35);
+    transform: scale(1.1);
 }
 
-// ==================== QUICK ADD ====================
-function openQuickAddPopup(itemName) {
-    const items = getAllItems();
-    quickAddItem = items.find(i => i.name === itemName);
-    if (!quickAddItem) return;
-    if (quickAddItem.outOfStock) {
-        showShareToast("Item sedang habis!");
-        return;
-    }
-    quickQty = 1;
-    document.getElementById("quickQty").innerText = quickQty;
-    document.getElementById("quickAddItemName").innerText = quickAddItem.name;
-    document.getElementById("quickNotes").value = "";
-    document.getElementById("quickAddModal").style.display = "flex";
+/* ==================== FAVORITES FAB ==================== */
+.fav-fab {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    background: var(--surface);
+    border: none;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-md);
+    z-index: 99;
+    transition: var(--transition);
 }
-function closeQuickAddModal() { document.getElementById("quickAddModal").style.display = "none"; quickAddItem = null; }
-function increaseQuickQty() { quickQty++; document.getElementById("quickQty").innerText = quickQty; }
-function decreaseQuickQty() { if (quickQty > 1) { quickQty--; document.getElementById("quickQty").innerText = quickQty; } }
-function confirmQuickAdd() {
-    if (!quickAddItem) return;
-    const notes = document.getElementById("quickNotes").value.trim();
-    addItemToCart(quickAddItem, quickQty, notes);
-    closeQuickAddModal();
-    showSuccessPopup();
-}
+.fav-fab:hover { transform: scale(1.1); }
 
-// ==================== CART CORE ====================
-function addItemToCart(item, qty, notes) {
-    const existing = cart.find(c => c.name === item.name);
-    if (existing) {
-        existing.quantity += qty;
-        if (notes) existing.notes = existing.notes ? existing.notes + "; " + notes : notes;
-    } else {
-        cart.push({ ...item, quantity: qty, notes: notes });
-    }
-    updateCartBadge();
-    animateCartIcon();
+/* ==================== CART ICON ==================== */
+.cart-icon {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--header-gradient);
+    color: white;
+    border: none;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    font-size: 26px;
+    display: flex; justify-content: center; align-items: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-accent);
+    z-index: 100;
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-function updateCartBadge() {
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const badge = document.getElementById("cart-count");
-    if (badge) badge.innerText = totalItems;
+.cart-icon:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 35px rgba(255,84,0,0.5);
 }
-function animateCartIcon() {
-    const btn = document.getElementById("cartIconBtn");
-    if (!btn) return;
-    btn.classList.remove("cart-pop");
-    void btn.offsetWidth;
-    btn.classList.add("cart-pop");
-    setTimeout(() => btn.classList.remove("cart-pop"), 500);
+.cart-icon.cart-pop {
+    animation: cartPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-function updateCart() {
-    updateCartBadge();
-    const container = document.getElementById("cart-items");
-    const emptyState = document.getElementById("cart-empty-state");
-    if (!container) return;
-    container.innerHTML = "";
-    if (cart.length === 0) {
-        if (emptyState) emptyState.style.display = "block";
-        container.style.display = "none";
-        const totalSpan = document.getElementById("cart-total");
-        if (totalSpan) totalSpan.innerText = formatPrice(0);
-        return;
-    }
-    if (emptyState) emptyState.style.display = "none";
-    container.style.display = "block";
-    let total = 0;
-    cart.forEach((item, index) => {
-        total += item.price * item.quantity;
-        const div = document.createElement("div");
-        div.className = "cart-item";
-        div.innerHTML = `
-        <div class="cart-item-info">
-            <strong>${item.name}</strong>
-            <div class="cart-item-price">${formatPrice(item.price * item.quantity)}</div>
-            ${item.notes ? `<span class="cart-notes">📝 ${item.notes}</span>` : ''}
-        </div>
-        <div class="cart-item-controls">
-            <button class="btn-qty" onclick="changeCartQty(${index}, -1)">-</button>
-            <span>${item.quantity}</span>
-            <button class="btn-qty" onclick="changeCartQty(${index}, 1)">+</button>
-            <button class="btn-remove" onclick="removeCartItem(${index})">🗑️</button>
-        </div>`;
-        container.appendChild(div);
-    });
-    const totalSpan = document.getElementById("cart-total");
-    if (totalSpan) totalSpan.innerText = formatPrice(total);
-}
-function changeCartQty(index, amount) {
-    cart[index].quantity += amount;
-    if (cart[index].quantity <= 0) cart.splice(index, 1);
-    updateCart();
-}
-function removeCartItem(index) { cart.splice(index, 1); updateCart(); }
-function clearCart() {
-    if (cart.length === 0) return;
-    if (confirm("Clear all items from cart?")) { cart = []; updateCart(); }
-}
-function openCart() {
-    updateCart();
-    document.getElementById("cartModal").style.display = "block";
-    document.getElementById("cart-screen").style.display = "block";
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("payment-confirm-screen").style.display = "none";
-}
-function closeCart() { document.getElementById("cartModal").style.display = "none"; }
-function openOrderSummary() {
-    if (cart.length === 0) { showShareToast("🛒 Your cart is empty!"); return; }
-    const summaryContainer = document.getElementById("order-summary-items");
-    summaryContainer.innerHTML = "";
-    let total = 0;
-    cart.forEach(item => {
-        total += item.price * item.quantity;
-        summaryContainer.innerHTML += `
-        <div class="summary-item">
-            <div class="summary-item-left">
-                <span class="summary-item-qty">${item.quantity}×</span>
-                <span class="summary-item-name">${item.name}</span>
-                ${item.notes ? `<span class="summary-item-note">📝 ${item.notes}</span>` : ''}
-            </div>
-            <span class="summary-item-price">${formatPrice(item.price * item.quantity)}</span>
-        </div>`;
-    });
-    document.getElementById("order-summary-grand-total").innerText = formatPrice(total);
-    const now = new Date();
-    const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
-    document.getElementById("order-time-display").innerHTML = `🕐 Order Time: ${timeStr}`;
-    document.getElementById("cart-screen").style.display = "none";
-    document.getElementById("order-summary-screen").style.display = "block";
+@keyframes cartPop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.28); }
+    65%  { transform: scale(0.93); }
+    85%  { transform: scale(1.07); }
+    100% { transform: scale(1); }
 }
 
-// ==================== KIRIM PESANAN KE GOOGLE SHEETS (setelah konfirmasi bayar) ====================
-let pendingOrderData = null;
-
-function openPayment() {
-    if (cart.length === 0) { showShareToast("Cart kosong!"); return; }
-    const tableNum = document.getElementById("tableNumber").value.trim() || "—";
-    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const now = new Date();
-    const timeStr = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
-
-    document.getElementById("payTableInfo").innerHTML = `🪑 Table: <strong>${tableNum}</strong>`;
-    document.getElementById("payTotalInfo").innerHTML = `💰 Total: <strong>${formatPrice(total)}</strong>`;
-    document.getElementById("payTimeInfo").innerHTML  = `🕐 Time: <strong>${timeStr}</strong>`;
-
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("payment-screen").style.display = "block";
-    document.getElementById("payment-confirm-screen").style.display = "none";
-
-    // Simpan data pesanan untuk dikirim setelah konfirmasi
-    pendingOrderData = {
-        tableNumber: tableNum,
-        items: cart.map(item => ({
-            name: item.name,
-            qty: item.quantity,
-            price: item.price,
-            notes: item.notes || ""
-        })),
-        total: total,
-        timestamp: now
-    };
+#cart-count {
+    position: absolute; top: -5px; right: -5px;
+    background: var(--green);
+    color: white;
+    font-size: 13px; font-weight: 700;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    border: 2px solid white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
 }
 
-function confirmPayment() {
-    if (!pendingOrderData) return;
-
-    // Tampilkan loading pada tombol
-    const confirmBtn = document.querySelector("#payment-screen .checkout-btn");
-    const originalText = confirmBtn.innerText;
-    confirmBtn.innerText = "⏳ Memproses...";
-    confirmBtn.disabled = true;
-
-    // Pindah ke layar konfirmasi loading
-    document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("payment-confirm-screen").style.display = "block";
-    document.getElementById("confirm-status").innerHTML = "⏳ Mengirim pesanan ke dapur...";
-
-    sendOrderToServer().then(success => {
-        if (success) {
-            document.getElementById("confirm-status").innerHTML = "✅ Pesanan berhasil! Admin akan segera memproses.";
-            // Kosongkan cart
-            cart = [];
-            updateCartBadge();
-            // Tampilkan popup sukses
-            showSuccessPopup("Pembayaran berhasil dikonfirmasi! Pesanan Anda telah diterima.");
-            // Setelah 3 detik tutup modal cart
-            setTimeout(() => {
-                closeCart();
-                // Reset
-                document.getElementById("payment-confirm-screen").style.display = "none";
-                document.getElementById("payment-screen").style.display = "block";
-                confirmBtn.innerText = originalText;
-                confirmBtn.disabled = false;
-                pendingOrderData = null;
-            }, 3000);
-        } else {
-            document.getElementById("confirm-status").innerHTML = "❌ Gagal mengirim pesanan. Coba lagi.";
-            setTimeout(() => {
-                document.getElementById("payment-confirm-screen").style.display = "none";
-                document.getElementById("payment-screen").style.display = "block";
-                confirmBtn.innerText = originalText;
-                confirmBtn.disabled = false;
-            }, 2000);
-        }
-    });
+/* ==================== SEARCH & SORT ==================== */
+.search-wrapper {
+    padding: 15px;
+    margin-top: -35px;
+    position: relative; z-index: 10;
+}
+.search-wrapper input {
+    width: 100%; border: none; padding: 16px; border-radius: 18px;
+    background: var(--surface); color: var(--text-primary);
+    font-size: 15px; box-shadow: var(--shadow-md); outline: none;
+    transition: var(--transition);
+}
+.search-wrapper input::placeholder { color: var(--text-muted); }
+.search-wrapper input:focus {
+    box-shadow: 0 8px 25px rgba(255,84,0,0.15), 0 0 0 2px rgba(255,84,0,0.15);
 }
 
-async function sendOrderToServer() {
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
-        console.warn("URL Apps Script belum diset");
-        return false;
-    }
-    try {
-        const orderData = {
-            action: "newOrder",
-            tableNumber: pendingOrderData.tableNumber,
-            items: pendingOrderData.items
-        };
-        const res = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify(orderData)
-        });
-        const result = await res.json();
-        if (result.status === "ok") {
-            return true;
-        } else {
-            return false;
-        }
-    } catch (err) {
-        console.error("Gagal kirim order:", err);
-        return false;
-    }
+.sort-wrapper {
+    padding: 0 15px 15px;
+    position: relative; z-index: 10;
+}
+.sort-wrapper select {
+    width: 100%; height: 52px; border: none; outline: none;
+    appearance: none; -webkit-appearance: none;
+    background: var(--surface); color: var(--text-secondary);
+    border-radius: 18px; padding: 0 50px 0 18px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; box-shadow: var(--shadow-md); transition: var(--transition);
+}
+.sort-wrapper select:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.sort-wrapper::after {
+    content: "▼"; position: absolute; right: 32px; bottom: 31px;
+    font-size: 12px; color: var(--text-muted); pointer-events: none;
 }
 
-function backToCart() {
-    document.getElementById("order-summary-screen").style.display = "none";
-    document.getElementById("cart-screen").style.display = "block";
+/* ==================== CATEGORY BUTTONS ==================== */
+.category-wrapper {
+    display: flex; gap: 10px;
+    overflow-x: auto; overflow-y: visible;
+    padding: 0 15px 20px;
+    scrollbar-width: none; position: relative; z-index: 10; margin-bottom: 15px;
 }
-function backToSummary() {
-    document.getElementById("payment-screen").style.display = "none";
-    document.getElementById("order-summary-screen").style.display = "block";
-}
+.category-wrapper::-webkit-scrollbar { display: none; }
 
-// ==================== SHARE ITEM ====================
-function shareItem() {
-    if (!currentItem) return;
-    const text = `🍽️ ${currentItem.name}\n${formatPrice(currentItem.price)}\n\n${currentItem.desc}\n\n— Heritage Nusantara, Authentic Indonesian Cuisine`;
-    if (navigator.share) {
-        navigator.share({ title: currentItem.name, text: text }).catch(() => {});
-    } else {
-        navigator.clipboard.writeText(text).then(() => {
-            showShareToast("📋 Menu info copied to clipboard!");
-        }).catch(() => { showShareToast("💡 Share: " + currentItem.name); });
-    }
+.category-btn {
+    border: none; padding: 14px 22px; border-radius: 50px;
+    background: var(--surface); color: var(--text-secondary);
+    font-weight: 600; white-space: nowrap; cursor: pointer;
+    transition: var(--transition); box-shadow: var(--shadow-sm); flex-shrink: 0;
 }
-
-// ==================== CLOSE MODALS ON OUTSIDE CLICK ====================
-window.onclick = function(event) {
-    const modal = document.getElementById("modal");
-    const cartModal = document.getElementById("cartModal");
-    const quickModal = document.getElementById("quickAddModal");
-    const favModal = document.getElementById("favModal");
-    if (event.target === modal) closeModal();
-    if (event.target === cartModal) closeCart();
-    if (event.target === quickModal) closeQuickAddModal();
-    if (event.target === favModal) closeFavModal();
-};
-// ==================== BILL MONITOR SYSTEM ====================
-function openBillModal() {
-    document.getElementById("billModal").style.display = "flex";
+.category-btn:hover {
+    background: #2563eb; color: white; transform: scale(1.02);
+    box-shadow: 0 10px 20px rgba(37,99,235,0.3);
+}
+.category-btn.active {
+    background: linear-gradient(135deg, var(--green), var(--green2));
+    color: white; box-shadow: 0 10px 25px rgba(16,185,129,.25);
 }
 
-function closeBillModal() {
-    document.getElementById("billModal").style.display = "none";
-    document.getElementById("billResult").style.display = "none";
-    document.getElementById("billOrderId").value = "";
+/* ==================== MENU CARDS ==================== */
+#menu-list { padding: 15px; display: grid; gap: 20px; }
+
+.menu-card {
+    background: var(--surface); border-radius: 25px; overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition), box-shadow var(--transition);
+    animation: fadeUp .45s ease both;
+}
+.menu-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+
+.image-wrapper { position: relative; overflow: hidden; }
+.menu-img {
+    width: 100%; height: 240px; object-fit: cover; display: block;
+    transition: transform 0.4s ease;
+}
+.menu-card:hover .menu-img { transform: scale(1.04); }
+
+.best-seller {
+    position: absolute; top: 15px; left: 15px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white; padding: 6px 12px; border-radius: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(245,158,11,0.4); z-index: 10;
+    display: flex; align-items: center; gap: 4px;
+    border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px);
 }
 
-async function checkBillStatus() {
-    const orderId = document.getElementById("billOrderId").value.trim();
-    const resultDiv = document.getElementById("billResult");
-    
-    if (!orderId) {
-        alert("Masukkan ID Pesanan terlebih dahulu.");
-        return;
-    }
+/* Card Favorite Button */
+.card-fav-btn {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,0.88); border: none;
+    width: 36px; height: 36px; border-radius: 50%;
+    font-size: 18px; cursor: pointer; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: var(--transition);
+}
+.card-fav-btn:hover { transform: scale(1.15); }
+.card-fav-btn.active { background: rgba(255,255,255,0.95); }
 
-    resultDiv.style.display = "block";
-    resultDiv.innerHTML = `<div style="text-align:center;"><div class="loader" style="border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:24px; height:24px; animation:spin 1s linear infinite; margin:0 auto;"></div><p style="margin-top:10px; font-size:12px; color: var(--text-muted);">Mencari pesanan...</p></div>`;
+.menu-info { padding: 18px; }
+.food-tag {
+    display: inline-block; background: var(--tag-bg); color: var(--tag-color);
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 12px;
+}
+.menu-info h3 { font-size: 22px; margin-bottom: 8px; color: var(--text-primary); }
+.price { color: var(--accent); font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+.menu-info p { color: var(--text-muted); line-height: 1.7; font-size: 14px; }
 
-    try {
-        const response = await fetch(`${APPS_SCRIPT_URL}?action=getOrderById&id=${orderId}`);
-        const data = await response.json();
+.card-actions { display: flex; gap: 10px; margin-top: 18px; }
+.detail-btn {
+    flex: 1; border: none; padding: 14px; border-radius: 15px; cursor: pointer; font-weight: 600;
+    color: var(--text-secondary); background: var(--border2); transition: var(--transition);
+}
+.detail-btn:hover { background: #cbd5e1; }
+.add-to-cart-btn {
+    flex: 1; border: none; padding: 14px; border-radius: 15px; cursor: pointer; font-weight: 600;
+    color: white; background: linear-gradient(135deg, var(--accent2), var(--accent)); transition: var(--transition);
+}
+.add-to-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255,84,0,.3); }
 
-        if (data.status === "success" && data.order) {
-            const o = data.order;
-            let statusColor = o.status === "Selesai" ? "var(--green)" : (o.status === "Diproses" ? "var(--accent)" : "var(--text-muted)");
-            
-            resultDiv.innerHTML = `
-                <h4 style="margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:5px; color: var(--text-primary);">${o.orderId}</h4>
-                <p style="font-size:13px; margin-bottom:5px; color: var(--text-secondary);"><strong>Status:</strong> <span style="color:${statusColor}; font-weight:600;">${o.status || 'Menunggu Konfirmasi'}</span></p>
-                <p style="font-size:13px; margin-bottom:5px; color: var(--text-secondary);"><strong>Total:</strong> ${formatPrice(o.total)}</p>
-                <p style="font-size:13px; margin-bottom:10px; color: var(--text-secondary);"><strong>Tipe:</strong> ${o.orderType}</p>
-                <div style="font-size:12px; color:var(--text-muted); background:var(--bg); padding:8px; border-radius:6px; border: 1px solid var(--border);">
-                    ${o.items.map(i => `• ${i.qty}x ${i.name}`).join('<br>')}
-                </div>
-            `;
-        } else {
-            resultDiv.innerHTML = `<p style="color:var(--red); text-align:center; font-size:13px; margin:0;">Pesanan tidak ditemukan. Pastikan ID benar.</p>`;
-        }
-    } catch (error) {
-        resultDiv.innerHTML = `<p style="color:var(--red); text-align:center; font-size:13px; margin:0;">Gagal mengambil data. Coba lagi nanti.</p>`;
-    }
+/* ==================== SKELETON LOADING ==================== */
+.skeleton-card {
+    background: var(--surface); border-radius: 25px; overflow: hidden;
+    box-shadow: var(--shadow-md); animation: fadeUp .4s ease;
+}
+.skeleton-img { width: 100%; height: 240px; }
+.skeleton-body { padding: 18px; }
+.skeleton-tag { width: 80px; height: 28px; border-radius: 20px; margin-bottom: 12px; }
+.skeleton-title { width: 65%; height: 24px; border-radius: 8px; margin-bottom: 10px; }
+.skeleton-price { width: 40%; height: 22px; border-radius: 8px; margin-bottom: 12px; }
+.skeleton-desc { width: 100%; height: 60px; border-radius: 8px; margin-bottom: 18px; }
+.skeleton-btns { display: flex; gap: 10px; }
+.skeleton-btn { flex: 1; height: 48px; border-radius: 15px; }
+
+.skeleton-pulse {
+    background: linear-gradient(90deg, var(--skeleton) 25%, var(--skeleton-shine) 50%, var(--skeleton) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ==================== EMPTY STATE ==================== */
+.empty-state {
+    text-align: center; padding: 60px 20px;
+    animation: fadeUp .4s ease;
+}
+.empty-state-icon { font-size: 64px; margin-bottom: 20px; }
+.empty-state h3 { font-size: 20px; color: var(--text-primary); margin-bottom: 8px; font-weight: 700; }
+.empty-state p { color: var(--text-muted); font-size: 15px; margin-bottom: 24px; }
+.empty-state-btn {
+    border: none; padding: 14px 28px; border-radius: 50px; cursor: pointer; font-weight: 600;
+    color: white; background: linear-gradient(135deg, var(--accent2), var(--accent));
+    font-size: 15px; transition: var(--transition);
+}
+.empty-state-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255,84,0,.3); }
+
+/* ==================== ABOUT SECTION ==================== */
+.about-section {
+    margin: 40px 15px 20px; background: var(--surface); padding: 35px 25px; border-radius: 25px;
+    box-shadow: var(--shadow-md); text-align: center;
+}
+.about-icon {
+    font-size: 45px; margin-bottom: 15px; display: inline-block; background: var(--surface2);
+    width: 80px; height: 80px; line-height: 80px; border-radius: 50%; box-shadow: var(--shadow-sm);
+}
+.about-section h2 { font-size: 22px; color: var(--text-secondary); margin-bottom: 15px; font-weight: 800; }
+.about-section h2 span { color: var(--accent); }
+.about-section p { color: var(--text-muted); font-size: 14.5px; line-height: 1.8; margin-bottom: 15px; }
+
+/* ==================== MODAL DETAIL ==================== */
+.modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(8px);
+    z-index: 999;
+    justify-content: center; align-items: center;
+    padding: 20px; box-sizing: border-box;
+}
+
+.modal-container {
+    width: 100%; max-width: 420px; max-height: 88vh;
+    background: var(--surface); border-radius: 28px;
+    overflow: hidden; position: relative;
+    animation: fadeUp 0.3s ease;
+    display: flex; flex-direction: column;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+}
+
+.modal-scrollable {
+    overflow-y: auto; overflow-x: hidden; flex: 1;
+    scrollbar-width: thin; scrollbar-color: var(--accent) var(--border);
+}
+.modal-scrollable::-webkit-scrollbar { width: 4px; }
+.modal-scrollable::-webkit-scrollbar-track { background: var(--border); }
+.modal-scrollable::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+
+.close-modal {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 20px; font-weight: 600; color: #1e293b;
+    cursor: pointer; z-index: 20;
+    background: rgba(255,255,255,0.92);
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); line-height: 1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: var(--transition);
+}
+.close-modal:hover { background: white; color: var(--accent); }
+
+.modal-image {
+    width: 100%; height: 240px; object-fit: cover; display: block;
+    margin: 0; padding: 0; border-radius: 0;
+    background: var(--surface2); flex-shrink: 0;
+}
+
+.modal-content-inner { padding: 20px 22px 28px; }
+
+/* Modal header row: category + fav + share */
+.modal-header-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.modal-category {
+    display: inline-block; background: var(--tag-bg); color: var(--tag-color);
+    padding: 6px 14px; border-radius: 40px; font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+}
+.fav-btn, .share-btn {
+    background: var(--surface2); border: 1px solid var(--border2);
+    width: 36px; height: 36px; border-radius: 50%;
+    font-size: 17px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition); margin-left: auto; flex-shrink: 0;
+    color: var(--text-muted);
+}
+.fav-btn { margin-left: auto; }
+.share-btn { margin-left: 0; }
+.fav-btn:hover { transform: scale(1.12); }
+.fav-btn.fav-active { background: #fee2e2; border-color: #fca5a5; }
+.share-btn:hover { background: var(--border2); transform: scale(1.1); }
+
+.modal-name { font-size: 24px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+.modal-price { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+.modal-description { color: var(--text-muted); line-height: 1.6; font-size: 14px; margin-bottom: 20px; }
+
+.modal-quantity {
+    display: flex; justify-content: center; align-items: center; gap: 24px; margin: 20px 0;
+}
+.qty-control {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent); color: white; border: none;
+    font-size: 28px; font-weight: 600; cursor: pointer; transition: var(--transition);
+}
+.qty-control:hover { background: #e04e00; transform: scale(1.06); }
+#modal-qty { font-size: 24px; font-weight: 700; min-width: 40px; text-align: center; color: var(--text-primary); }
+
+#modal-notes {
+    width: 100%; min-height: 90px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    padding: 12px 16px; font-size: 14px; resize: vertical;
+    margin: 10px 0 16px; font-family: 'Poppins', sans-serif;
+    background: var(--surface); color: var(--text-primary);
+    transition: var(--transition);
+}
+#modal-notes:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,84,0,0.1); }
+
+.modal-add-btn {
+    background: linear-gradient(105deg, var(--accent2), var(--accent));
+    border: none; width: 100%; padding: 14px 0; border-radius: 60px;
+    color: white; font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: var(--transition); box-shadow: 0 8px 20px rgba(255,84,0,0.3); margin-bottom: 8px;
+}
+.modal-add-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(255,84,0,0.4); }
+
+/* ==================== QUICK ADD MODAL ==================== */
+.quick-add-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+    z-index: 1001; justify-content: center; align-items: center;
+}
+.quick-add-content {
+    background: var(--surface); width: 85%; max-width: 350px;
+    border-radius: 28px; padding: 25px; text-align: center;
+    animation: fadeUp 0.3s ease; position: relative;
+}
+.quick-add-content h3 { margin-bottom: 15px; color: var(--accent); }
+.quick-add-content p { font-weight: 600; margin-bottom: 15px; color: var(--text-primary); }
+.quick-add-content .quantity-wrapper {
+    display: flex; justify-content: center; gap: 20px; margin: 20px 0;
+}
+.quick-add-content .quantity-wrapper button {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: none; background: var(--accent); color: white; font-size: 22px; cursor: pointer;
+}
+#quickQty { font-size: 22px; font-weight: bold; color: var(--text-primary); }
+.quick-add-content textarea {
+    width: 100%; min-height: 80px;
+    border: 1px solid var(--border2); border-radius: 16px; padding: 12px; resize: none; margin: 10px 0;
+    background: var(--surface); color: var(--text-primary); font-family: 'Poppins', sans-serif;
+}
+.close-quick {
+    position: absolute; top: 12px; right: 18px; font-size: 28px;
+    cursor: pointer; color: var(--text-muted);
+}
+.order-btn {
+    background: linear-gradient(105deg, var(--accent2), var(--accent));
+    border: none; color: white; padding: 14px; border-radius: 50px;
+    font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; margin-top: 10px;
+    transition: var(--transition);
+}
+.order-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,84,0,0.3); }
+
+/* ==================== CART MODAL ==================== */
+.cart-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(8px); z-index: 1000;
+    overflow-y: auto;
+}
+.cart-content {
+    width: 90%; max-width: 420px; margin: 40px auto 40px;
+    background: var(--surface); border-radius: 28px;
+    padding: 25px; position: relative; animation: fadeUp .3s ease;
+}
+.cart-content h2 {
+    font-size: 22px; color: var(--text-secondary); margin-bottom: 20px;
+    text-align: center; border-bottom: 2px dashed var(--border2); padding-bottom: 15px;
+}
+.cart-content .close {
+    position: absolute; top: 16px; right: 20px;
+    font-size: 28px; cursor: pointer; color: var(--text-muted); line-height: 1;
+}
+
+#cart-items { max-height: 300px; overflow-y: auto; margin-bottom: 10px; padding-right: 4px; }
+
+.cart-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface2); padding: 15px; border-radius: 18px;
+    margin-bottom: 10px; border: 1px solid var(--border);
+    animation: fadeUp 0.25s ease;
+}
+.cart-item-info { flex: 1; padding-right: 10px; }
+.cart-item-info strong { color: var(--text-secondary); font-size: 15px; display: block; margin-bottom: 4px; }
+.cart-item-price { color: var(--accent); font-weight: 700; font-size: 14px; }
+.cart-notes { display: block; color: var(--text-light); font-size: 12px; margin-top: 4px; font-style: italic; }
+.cart-item-controls { display: flex; align-items: center; gap: 8px; }
+.btn-qty {
+    width: 28px; height: 28px; border: none; border-radius: 8px;
+    background: var(--border2); color: var(--text-secondary); font-weight: bold; cursor: pointer;
+    transition: var(--transition);
+}
+.btn-qty:hover { background: var(--accent); color: white; }
+.btn-remove {
+    background: #fee2e2; color: #ef4444; border: none; padding: 6px 8px;
+    border-radius: 8px; cursor: pointer; transition: var(--transition);
+}
+.btn-remove:hover { background: #fca5a5; }
+
+/* Cart empty state */
+.cart-empty-state {
+    text-align: center; padding: 40px 20px;
+}
+.cart-empty-state .empty-icon { font-size: 50px; margin-bottom: 12px; }
+.cart-empty-state p { color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; }
+.cart-empty-state small { color: var(--text-muted); }
+
+/* Cart footer */
+.cart-footer { margin-top: 12px; }
+.cart-total {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 18px; font-weight: 700; color: var(--text-secondary);
+    margin-bottom: 14px; padding-top: 14px; border-top: 2px solid var(--border);
+}
+#cart-total { color: var(--accent); font-size: 22px; }
+
+.cart-actions-row { display: flex; gap: 10px; }
+.clear-cart-btn {
+    flex: 0 0 auto; border: none; padding: 14px 16px; border-radius: 15px; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: #ef4444; background: #fee2e2; transition: var(--transition);
+}
+.clear-cart-btn:hover { background: #fca5a5; }
+.checkout-btn {
+    flex: 1; border: none; padding: 14px; border-radius: 15px; cursor: pointer;
+    font-size: 15px; font-weight: 700; color: white;
+    background: linear-gradient(135deg, var(--green), var(--green2)); transition: var(--transition);
+}
+.checkout-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16,185,129,0.3); }
+
+/* ==================== ORDER SUMMARY SCREEN ==================== */
+.table-input-wrapper {
+    margin-bottom: 18px;
+}
+.table-input-wrapper label {
+    display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;
+}
+.table-input-wrapper input {
+    width: 100%; border: 1.5px solid var(--border2); border-radius: 14px;
+    padding: 12px 16px; font-size: 15px; font-family: 'Poppins', sans-serif;
+    background: var(--surface2); color: var(--text-primary); outline: none;
+    transition: var(--transition);
+}
+.table-input-wrapper input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,84,0,0.1); }
+
+.summary-item {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.summary-item:last-child { border-bottom: none; }
+.summary-item-left { display: flex; flex-direction: column; gap: 3px; flex: 1; padding-right: 12px; }
+.summary-item-qty { font-weight: 700; color: var(--accent); font-size: 14px; }
+.summary-item-name { font-weight: 600; color: var(--text-primary); font-size: 14px; }
+.summary-item-note { font-size: 12px; color: var(--text-muted); font-style: italic; }
+.summary-item-price { font-weight: 700; color: var(--text-secondary); font-size: 14px; flex-shrink: 0; }
+
+.order-summary-total {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 17px; font-weight: 800; color: var(--text-primary);
+    padding: 14px 0 10px; border-top: 2px solid var(--border);
+    margin-top: 4px;
+}
+.order-summary-total span:last-child { color: var(--accent); font-size: 20px; }
+
+.order-timestamp {
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    padding: 8px 0 16px;
+}
+
+.summary-btn-row { display: flex; gap: 10px; margin-top: 8px; }
+.back-btn {
+    flex: 0 0 auto; border: 1.5px solid var(--border2); padding: 14px 16px; border-radius: 15px;
+    cursor: pointer; font-size: 14px; font-weight: 600;
+    color: var(--text-muted); background: var(--surface2); transition: var(--transition);
+}
+.back-btn:hover { background: var(--border2); }
+
+/* ==================== PAYMENT SCREEN ==================== */
+.payment-info-box {
+    background: var(--surface2); border-radius: 16px; padding: 16px;
+    margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.pay-table-info, .pay-total-info, .pay-time-info {
+    font-size: 14px; color: var(--text-muted);
+}
+.pay-total-info strong { color: var(--accent); font-size: 18px; }
+.pay-table-info strong, .pay-time-info strong { color: var(--text-primary); }
+
+.qris-placeholder { text-align: center; padding: 10px 20px; }
+.barcode-box {
+    border: 2px dashed var(--border2); padding: 20px; border-radius: 15px;
+    background: var(--surface2); margin-bottom: 12px;
+}
+.barcode-box img { width: 100%; max-width: 200px; display: block; margin: 0 auto; border-radius: 10px; }
+.qris-note { text-align: center; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+/* ==================== FAVORITES MODAL ==================== */
+.fav-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    z-index: 1002; justify-content: center; align-items: center;
+    padding: 20px; box-sizing: border-box;
+}
+.fav-content {
+    background: var(--surface); width: 100%; max-width: 420px;
+    border-radius: 28px; padding: 25px; position: relative;
+    animation: fadeUp 0.3s ease; max-height: 80vh; overflow-y: auto;
+}
+.close-fav {
+    position: absolute; top: 16px; right: 20px; font-size: 28px;
+    cursor: pointer; color: var(--text-muted); line-height: 1;
+}
+.fav-content h2 {
+    font-size: 22px; color: var(--text-secondary); margin-bottom: 20px;
+    text-align: center; border-bottom: 2px dashed var(--border2); padding-bottom: 15px;
+}
+
+.fav-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.fav-item:last-child { border-bottom: none; }
+.fav-item img { width: 60px; height: 60px; border-radius: 14px; object-fit: cover; flex-shrink: 0; }
+.fav-item-info { flex: 1; }
+.fav-item-info strong { display: block; font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.fav-item-info span { font-size: 13px; color: var(--accent); font-weight: 600; }
+.fav-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.fav-add-btn {
+    border: none; padding: 8px 14px; border-radius: 10px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: white;
+    background: linear-gradient(135deg, var(--accent2), var(--accent)); transition: var(--transition);
+}
+.fav-add-btn:hover { transform: translateY(-1px); }
+.fav-remove-btn {
+    border: none; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+    background: #fee2e2; color: #ef4444; transition: var(--transition);
+}
+.fav-remove-btn:hover { background: #fca5a5; }
+
+.fav-empty { text-align: center; padding: 40px 20px; }
+.fav-empty .empty-icon { font-size: 50px; margin-bottom: 12px; }
+.fav-empty p { color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; }
+.fav-empty small { color: var(--text-muted); }
+
+/* ==================== SUCCESS POPUP ==================== */
+.success-popup {
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.85);
+    z-index: 9999; background: var(--surface); padding: 25px; border-radius: 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2); text-align: center; width: 80%; max-width: 300px;
+    opacity: 0; transition: opacity 0.2s, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.success-popup.show {
+    display: block;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.success-popup p { color: var(--text-secondary); font-weight: 600; }
+.checkmark { font-size: 50px; color: var(--green); margin-bottom: 10px; }
+
+/* ==================== SHARE TOAST ==================== */
+.share-toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text-primary); color: var(--surface);
+    padding: 12px 24px; border-radius: 50px; font-size: 14px; font-weight: 600;
+    z-index: 9999; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-lg);
+}
+.share-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ==================== FOOTER ==================== */
+footer { text-align: center; padding: 35px 20px; color: var(--text-muted); }
+footer h3 { color: var(--accent); margin-bottom: 8px; }
+
+/* ==================== ANIMATIONS ==================== */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+/* ===== OUT OF STOCK BADGE & CARD STYLE ===== */
+.out-of-stock {
+    opacity: 0.8;
+    filter: grayscale(0.1);
+}
+.out-of-stock-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.add-to-cart-btn.disabled {
+    background: #ccc !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+/* ===== OUT OF STOCK BADGE & CARD STYLE ===== */
+.out-of-stock {
+    opacity: 0.8;
+    filter: grayscale(0.1);
+}
+.out-of-stock-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.add-to-cart-btn.disabled {
+    background: #ccc !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+/* ===== ANIMASI LOADING UNTUK KONFIRMASI ===== */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+/* ===== BILL MONITOR FAB ===== */
+.bill-fab {
+    position: fixed;
+    bottom: 85px; 
+    right: 20px;
+    background: var(--surface);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    z-index: 99;
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+}
+.bill-fab:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    border-color: var(--accent);
+}
+.bill-fab svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--text-primary);
+    transition: stroke var(--transition);
+}
+.bill-fab:hover svg {
+    stroke: var(--accent);
 }
