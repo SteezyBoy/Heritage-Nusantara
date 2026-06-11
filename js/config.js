@@ -6,7 +6,7 @@
 
 const CONFIG = {
     // 1. ENDPOINT API (URL dari Google Apps Script)
-    APP_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyn30grZC520L63gtHJ7lYITjgqSwHyNowaMVtqd_ysjpN22wbsB0mzGu8q7OIfNft80w/exec",
+    APP_SCRIPT_URL: "https://script.google.com/macros/s/AKfycby83oVwWn7JogC34ASRjwCBqUnSzqhF3HVTO2iPbhUdXyN63FLqRXBiOj5TPBU_ZAgYSw/exec",
 
     // 2. PENGATURAN REQUEST
     // Batas waktu maksimal menunggu server membalas (15 detik)
