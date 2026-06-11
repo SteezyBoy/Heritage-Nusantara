@@ -1,5 +1,5 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
-// Versi terintegrasi dengan Google Sheets (menu & order)
+// Versi dengan integrasi Google Sheets + Out of Stock
 
 // Ganti dengan URL Apps Script Anda setelah deploy
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_fLsGO9xEZNasT6Yzm0b3oOuz8e-fZrnAoYuKMHSeVzlbeZ5E_U19Ux8pM6-qa27l8A/exec";
@@ -38,7 +38,8 @@ async function loadMenuFromSheet() {
                 menuData[cat] = menuData[cat].map(item => ({
                     ...item,
                     price: Number(item.price),
-                    bestSeller: item.bestSeller === true || item.bestSeller === "true"
+                    bestSeller: item.bestSeller === true || item.bestSeller === "true",
+                    outOfStock: item.outOfStock === true || item.outOfStock === "true"
                 }));
             }
         } else {
@@ -53,18 +54,18 @@ async function loadMenuFromSheet() {
 function setDefaultMenu() {
     menuData = {
         makanan: [
-            { name:"Tahu Isi Goreng", category:"Appetizer", bestSeller:true, image:"images/TAHU ISI GORENG.jpeg", desc:"Tahu renyah yang digoreng keemasan.", price:35000 },
-            { name:"Lumpia Semarang", category:"Appetizer", bestSeller:false, image:"images/LUMPIA SEMARANG.jpeg", desc:"Camilan legendaris khas Semarang.", price:45000 },
-            { name:"Soto Ayam Lamongan", category:"Soup", bestSeller:true, image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah.", price:40000 },
-            { name:"Nasi Goreng Kampung", category:"Main Course", bestSeller:true, image:"images/NASI GORENG KAMPUNG.jpeg", desc:"Nasi goreng beraroma terasi.", price:75000 },
-            { name:"Rendang Daging Sapi", category:"Main Course", bestSeller:true, image:"images/RENDANG DAGING SAPI.jpeg", desc:"Mahakarya kuliner Minang.", price:90000 }
+            { name:"Tahu Isi Goreng", category:"Appetizer", bestSeller:true, outOfStock:false, image:"images/TAHU ISI GORENG.jpeg", desc:"Tahu renyah yang digoreng keemasan.", price:35000 },
+            { name:"Lumpia Semarang", category:"Appetizer", bestSeller:false, outOfStock:false, image:"images/LUMPIA SEMARANG.jpeg", desc:"Camilan legendaris khas Semarang.", price:45000 },
+            { name:"Soto Ayam Lamongan", category:"Soup", bestSeller:true, outOfStock:false, image:"images/SOTO AYAM LAMONGAN.jpeg", desc:"Kuah soto kuning kaya rempah.", price:40000 },
+            { name:"Nasi Goreng Kampung", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/NASI GORENG KAMPUNG.jpeg", desc:"Nasi goreng beraroma terasi.", price:75000 },
+            { name:"Rendang Daging Sapi", category:"Main Course", bestSeller:true, outOfStock:false, image:"images/RENDANG DAGING SAPI.jpeg", desc:"Mahakarya kuliner Minang.", price:90000 }
         ],
         minuman: [
-            { name:"Es Teh", category:"Beverage", bestSeller:false, image:"images/ES TEH.jpeg", desc:"Seduhan teh melati dingin.", price:25000 },
-            { name:"Kopi Bali", category:"Beverage", bestSeller:true, image:"images/KOPI BALI.jpeg", desc:"Kopi tubruk dari biji kopi Bali.", price:30000 }
+            { name:"Es Teh", category:"Beverage", bestSeller:false, outOfStock:false, image:"images/ES TEH.jpeg", desc:"Seduhan teh melati dingin.", price:25000 },
+            { name:"Kopi Bali", category:"Beverage", bestSeller:true, outOfStock:false, image:"images/KOPI BALI.jpeg", desc:"Kopi tubruk dari biji kopi Bali.", price:30000 }
         ],
         dessert: [
-            { name:"Klepon", category:"Dessert", bestSeller:true, image:"images/KLEPON.jpeg", desc:"Jajanan pasar kenyal bertabur kelapa.", price:30000 }
+            { name:"Klepon", category:"Dessert", bestSeller:true, outOfStock:false, image:"images/KLEPON.jpeg", desc:"Jajanan pasar kenyal bertabur kelapa.", price:30000 }
         ]
     };
 }
@@ -136,12 +137,14 @@ function renderMenu() {
     items.forEach((item, index) => {
         const safeName = item.name.replace(/'/g, "\\'");
         const isFav = favorites.includes(item.name);
+        const isOutOfStock = item.outOfStock === true;
         const card = document.createElement("div");
-        card.className = "menu-card";
+        card.className = "menu-card" + (isOutOfStock ? " out-of-stock" : "");
         card.style.animationDelay = `${index * 0.06}s`;
         card.innerHTML = `
             <div class="image-wrapper">
-                ${item.bestSeller ? `<div class="best-seller">🔥 BEST SELLER</div>` : ''}
+                ${item.bestSeller && !isOutOfStock ? `<div class="best-seller">🔥 BEST SELLER</div>` : ''}
+                ${isOutOfStock ? `<div class="out-of-stock-badge">⛔ HABIS</div>` : ''}
                 <button class="card-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event,'${safeName}')" title="Favorite">
                     ${isFav ? '❤️' : '🤍'}
                 </button>
@@ -150,12 +153,15 @@ function renderMenu() {
             </div>
             <div class="menu-info">
                 <div class="food-tag">${item.category}</div>
-                <h3>${item.name}</h3>
+                <h3>${item.name} ${isOutOfStock ? '<span style="color:red; font-size:12px;">(Habis)</span>' : ''}</h3>
                 <div class="price">${formatPrice(item.price)}</div>
                 <p>${item.desc.substring(0, 80)}${item.desc.length > 80 ? '...' : ''}</p>
                 <div class="card-actions">
                     <button class="detail-btn" onclick="openModalByName('${safeName}')">View Details</button>
-                    <button class="add-to-cart-btn" onclick="openQuickAddPopup('${safeName}')">+ Add To Cart</button>
+                    ${isOutOfStock ? 
+                        '<button class="add-to-cart-btn disabled" disabled style="background:#ccc; cursor:not-allowed;">⛔ Habis</button>' : 
+                        `<button class="add-to-cart-btn" onclick="openQuickAddPopup('${safeName}')">+ Add To Cart</button>`
+                    }
                 </div>
             </div>`;
         menuList.appendChild(card);
@@ -234,11 +240,14 @@ function openFavModal() {
             <div class="fav-item">
                 <img src="${item.image}" alt="${item.name}" loading="lazy">
                 <div class="fav-item-info">
-                    <strong>${item.name}</strong>
+                    <strong>${item.name} ${item.outOfStock ? '(Habis)' : ''}</strong>
                     <span>${formatPrice(item.price)}</span>
                 </div>
                 <div class="fav-item-actions">
-                    <button class="fav-add-btn" onclick="closeFavModal(); openQuickAddPopup('${safeName}')">+ Cart</button>
+                    ${item.outOfStock ? 
+                        '<button class="fav-add-btn disabled" disabled style="background:#ccc;">⛔ Habis</button>' : 
+                        `<button class="fav-add-btn" onclick="closeFavModal(); openQuickAddPopup('${safeName}')">+ Cart</button>`
+                    }
                     <button class="fav-remove-btn" onclick="removeFav('${safeName}')">🗑</button>
                 </div>
             </div>`;
@@ -268,6 +277,17 @@ function openModalByName(itemName) {
     document.getElementById("modal-price").innerText = formatPrice(currentItem.price);
     document.getElementById("modal-desc").innerText = currentItem.desc;
     updateModalFavBtn();
+    // Jika out of stock, disable tombol add dan quantity
+    const isOutOfStock = currentItem.outOfStock === true;
+    const qtyControls = document.querySelectorAll(".qty-control");
+    const addBtn = document.querySelector(".modal-add-btn");
+    if (isOutOfStock) {
+        qtyControls.forEach(btn => btn.disabled = true);
+        if (addBtn) { addBtn.disabled = true; addBtn.style.background = "#ccc"; addBtn.style.cursor = "not-allowed"; addBtn.textContent = "⛔ Habis"; }
+    } else {
+        qtyControls.forEach(btn => btn.disabled = false);
+        if (addBtn) { addBtn.disabled = false; addBtn.style.background = "linear-gradient(105deg, #ff7b00, #ff5400)"; addBtn.textContent = "Add To Cart"; }
+    }
     const scrollable = document.querySelector(".modal-scrollable");
     if (scrollable) scrollable.scrollTop = 0;
     document.getElementById("modal").style.display = "flex";
@@ -284,6 +304,7 @@ function decreaseModalQty() {
 }
 function addToCartFromModal() {
     if (!currentItem) return;
+    if (currentItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); return; }
     const qty = parseInt(document.getElementById("modal-qty").innerText);
     const notes = document.getElementById("modal-notes").value.trim();
     addItemToCart(currentItem, qty, notes);
@@ -296,6 +317,7 @@ function openQuickAddPopup(itemName) {
     const items = getAllItems();
     quickAddItem = items.find(i => i.name === itemName);
     if (!quickAddItem) return;
+    if (quickAddItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); return; }
     quickQty = 1;
     document.getElementById("quickQty").innerText = quickQty;
     document.getElementById("quickAddItemName").innerText = quickAddItem.name;
@@ -307,6 +329,7 @@ function increaseQuickQty() { quickQty++; document.getElementById("quickQty").in
 function decreaseQuickQty() { if (quickQty > 1) { quickQty--; document.getElementById("quickQty").innerText = quickQty; } }
 function confirmQuickAdd() {
     if (!quickAddItem) return;
+    if (quickAddItem.outOfStock) { showShareToast("Maaf, menu ini sedang habis."); closeQuickAddModal(); return; }
     const notes = document.getElementById("quickNotes").value.trim();
     addItemToCart(quickAddItem, quickQty, notes);
     closeQuickAddModal();
@@ -315,6 +338,7 @@ function confirmQuickAdd() {
 
 // ==================== CART CORE ====================
 function addItemToCart(item, qty, notes) {
+    if (item.outOfStock) return;
     const existing = cart.find(c => c.name === item.name);
     if (existing) {
         existing.quantity += qty;
@@ -452,17 +476,20 @@ async function openPayment() {
             const result = await res.json();
             if (result.status === "ok") {
                 document.getElementById("payOrderId").innerHTML = `✅ Order ID: <strong>${result.orderId}</strong>`;
+                // Kosongkan cart setelah berhasil
                 cart = [];
                 updateCartBadge();
+                // Tampilkan notifikasi sukses
+                showShareToast("✅ Pesanan berhasil dikirim!");
             } else {
-                document.getElementById("payOrderId").innerHTML = `⚠️ Gagal menyimpan order`;
+                document.getElementById("payOrderId").innerHTML = `⚠️ Gagal menyimpan order: ${result.message || 'unknown error'}`;
             }
         } catch (err) {
-            console.warn("Gagal kirim ke Sheets:", err);
-            document.getElementById("payOrderId").innerHTML = `⚠️ Pesanan tersimpan lokal (offline)`;
+            console.error("Gagal kirim ke Sheets:", err);
+            document.getElementById("payOrderId").innerHTML = `⚠️ Pesanan tersimpan lokal (offline) - Error: ${err.message}`;
         }
     } else {
-        document.getElementById("payOrderId").innerHTML = `⚠️ URL Apps Script belum diset`;
+        document.getElementById("payOrderId").innerHTML = `⚠️ URL Apps Script belum diset. Hubungi admin.`;
     }
 }
 function backToCart() {
