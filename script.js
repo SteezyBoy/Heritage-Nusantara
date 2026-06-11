@@ -1,7 +1,7 @@
 // ==================== HERITAGE NUSANTARA - SCRIPT.js ====================
 // Alur: Cart → Proceed Order → Bill Monitor (status per item real-time) → Close Bill & Payment
 
-const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzVD4bau8icPv8jRMC98FLLwYpONLZ86aLwkV1PF16tZEmkg4UsZBxXaDYalezwHA1Dw/exec";
 
 let currentCategory = "all";
 let currentItem = null;
