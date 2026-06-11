@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Heritage Nusantara - Premium Indonesian Cuisine</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -203,19 +203,6 @@
     </div>
 </div>
 
-<!-- ===== FAVORITES MODAL ===== -->
-<div id="favModal" class="fav-modal">
-    <div class="fav-content">
-        <span class="close-fav" onclick="closeFavModal()">&times;</span>
-        <h2>❤️ Favorites</h2>
-        <div id="fav-list"></div>
-        <div id="fav-empty" class="fav-empty" style="display:none;">
-            <div class="empty-icon">💔</div>
-            <p>No favorites yet</p>
-            <small>Tap ♡ on any menu to save it here</small>
-        </div>
-    </div>
-</div>
 
 <!-- ===== FAVORITES FAB ===== -->
 <button class="fav-fab" onclick="openFavModal()" title="My Favorites">❤️</button>
@@ -224,5 +211,30 @@
 <div id="shareToast" class="share-toast"></div>
 
 <script src="script.js"></script>
+
+<div class="bill-fab" onclick="openBillModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+    </svg>
+</div>
+
+<div id="billModal" class="quick-add-modal">
+    <div class="quick-add-content" style="max-width: 400px; text-align: center;">
+        <span class="close-quick" onclick="closeBillModal()">&times;</span>
+        <h3 style="margin-bottom: 15px; color: var(--text-primary);">🧾 Lacak Pesanan</h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">Masukkan ID Pesanan untuk melihat status terbaru.</p>
+        
+        <input type="text" id="billOrderId" placeholder="Contoh: ORD-12345" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; font-family: 'Poppins', sans-serif; background: var(--surface2); color: var(--text-primary); box-sizing: border-box;">
+        
+        <button class="order-btn" onclick="checkBillStatus()">Cek Status</button>
+        
+        <div id="billResult" style="margin-top: 20px; text-align: left; display: none; padding: 15px; background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);"></div>
+    </div>
+</div>
+
 </body>
 </html>
