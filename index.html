@@ -33,7 +33,6 @@
 </div>
 
 <div class="app">
-    <!-- ===== HEADER ===== -->
     <header>
         <div class="restaurant-badge">✨ Premium Indonesian Cuisine</div>
         <button class="darkmode-toggle" id="darkmodeToggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">
@@ -51,12 +50,9 @@
         </div>
     </header>
 
-    <!-- ===== SEARCH ===== -->
     <div class="search-wrapper">
         <input type="text" id="searchInput" placeholder="🔍 Search menu..." onkeyup="searchMenu()">
     </div>
-
-    <!-- ===== SORT ===== -->
     <div class="sort-wrapper">
         <select id="sortMenu" onchange="sortMenu()">
             <option value="" disabled selected>Sort Menu</option>
@@ -67,26 +63,20 @@
             <option value="high">Price High to Low</option>
         </select>
     </div>
-
-    <!-- ===== CATEGORY BUTTONS ===== -->
     <div class="category-wrapper">
         <button class="category-btn active" onclick="changeCategory(this,'all')">🍽 ALL</button>
         <button class="category-btn" onclick="changeCategory(this,'makanan')">🍛 FOOD</button>
         <button class="category-btn" onclick="changeCategory(this,'dessert')">🍨 DESSERT</button>
         <button class="category-btn" onclick="changeCategory(this,'minuman')">🥤 BEVERAGES</button>
     </div>
-
-    <!-- ===== MENU LIST ===== -->
     <div id="menu-list"></div>
 
-    <!-- ===== ABOUT SECTION ===== -->
     <section class="about-section">
         <div class="about-icon">🍃</div>
         <h2>About <span>Heritage Nusantara</span></h2>
         <p>Heritage Nusantara presents authentic Indonesian cuisine crafted from selected ingredients and traditional recipes passed down through generations.</p>
         <p>Our mission is to preserve Indonesia's culinary heritage while delivering a premium dining experience for every guest.</p>
     </section>
-
     <footer>
         <h3>Heritage Nusantara</h3>
         <p>Authentic Indonesian Cuisine</p>
@@ -143,7 +133,7 @@
                 </div>
                 <div class="cart-actions-row">
                     <button class="clear-cart-btn" onclick="clearCart()">🗑 Clear All</button>
-                    <button class="checkout-btn" onclick="openOrderSummary()">Close Bill & Payment</button>
+                    <button class="checkout-btn" onclick="openOrderSummary()">Proceed to Order</button>
                 </div>
             </div>
         </div>
@@ -182,7 +172,6 @@
                     <img src="images/QRIS.jpg" alt="QRIS Payment" loading="lazy" style="width:100%; max-width:200px; display:block; margin:0 auto;">
                 </div>
             </div>
-            <div id="payOrderId" style="text-align:center;font-size:14px;margin-bottom:10px;color:#10b981;font-weight:600;min-height:22px;"></div>
             <p class="qris-note">Scan the QR code above using your mobile banking or e-wallet app</p>
             <div class="summary-btn-row" style="justify-content:space-between;">
                 <button class="back-btn" onclick="backToSummary()">← Back</button>
@@ -190,14 +179,19 @@
             </div>
         </div>
 
-        <!-- Screen 4: Konfirmasi Pembayaran -->
-        <div id="payment-confirm-screen" style="display:none;">
-            <h2>⏳ Konfirmasi Pembayaran</h2>
-            <div class="payment-info-box">
-                <div id="confirm-status" style="text-align:center; padding:20px;">Memproses...</div>
+        <!-- Screen 4: Bill Monitoring (Pantauan Bill) -->
+        <div id="bill-monitor-screen" style="display:none;">
+            <h2>📊 Pantauan Bill</h2>
+            <div id="bill-order-id" style="font-size:12px; text-align:center; color:var(--muted); margin-bottom:10px;"></div>
+            <div id="bill-items-list"></div>
+            <div class="order-summary-total" style="margin:10px 0;">
+                <span>Total Tagihan</span>
+                <span id="bill-total">Rp 0</span>
             </div>
-            <div style="text-align:center; margin-top:20px;">
-                <div class="loader" style="border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto;"></div>
+            <div id="bill-status-badge" style="text-align:center; margin:10px 0;"></div>
+            <div class="summary-btn-row">
+                <button class="back-btn" onclick="closeBillMonitor()">Tutup</button>
+                <button id="closeBillBtn" class="checkout-btn" style="background: linear-gradient(135deg, var(--accent), var(--accent2));" onclick="closeBillAndPayment()">💰 Close Bill & Payment</button>
             </div>
         </div>
     </div>
@@ -217,10 +211,7 @@
     </div>
 </div>
 
-<!-- ===== FAVORITES FAB ===== -->
 <button class="fav-fab" onclick="openFavModal()" title="My Favorites">❤️</button>
-
-<!-- ===== SHARE TOAST ===== -->
 <div id="shareToast" class="share-toast"></div>
 
 <script src="script.js"></script>
